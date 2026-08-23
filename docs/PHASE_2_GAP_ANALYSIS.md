@@ -1,0 +1,23 @@
+# Nexus Mind — Phase 2 Gap Analysis & Prioritization Report
+
+## 1. Structured Gap Analysis Matrix
+
+| Feature | Current Implementation | Actual Status | Problem | Required Fix | Priority |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Secrets & Demo Gate** | Hardcoded secrets in seed / default demo login active | ⚠️ PARTIAL | Real secrets might leak; demo user auto-logs in without explicit flag | Separate `.env` from `.env.example`, gate demo auto-login behind `DEMO_MODE=true` | **P0** |
+| **Flutter Token Storage** | Tokens stored in SharedPreferences / memory | ⚠️ PARTIAL | Insecure local storage on mobile devices | Migrate to `flutter_secure_storage` + Dio interceptors with auto token refresh | **P0** |
+| **MFA Secret Encryption & Recovery** | TOTP secrets stored in plaintext in DB | ⚠️ PARTIAL | MFA secrets exposed if DB compromised; no backup codes | Application-level Fernet encryption for MFA secrets, generate 8 hashed backup recovery codes | **P0** |
+| **Tenant & Organization Isolation** | Entities have `org_id` but queries don't all enforce tenant filtering | ⚠️ PARTIAL | Org A user could read Org B resources if ID is known | Add strict `org_id` scoping to every repository query + negative security tests | **P0** |
+| **RAG Semantic Embeddings** | Hashed word frequency vector representations | ⚠️ MOCKED / PROTOTYPE | Lacks true semantic similarity & contextual nuance | Integrate real dense embedding model (e.g. `sentence-transformers` / `all-MiniLM-L6-v2` or local compact transformer) + pgvector schema | **P0** |
+| **RAG Grounding & Permission Filter** | Keyword + similarity matching without tenant check | ⚠️ PARTIAL | Unauthorized docs could leak into RAG prompt; hallucinations possible | Strict permission & tenant filtering before retrieval, grounded fallback response, `rag_eval.py` | **P0** |
+| **AI Agent Controlled Tooling** | Single router with basic query branching | ⚠️ PARTIAL | Direct execution without strict tool schemas & approval diff UI | Explicit agent personas, tool permission guards, before/after approval diff UI, `agent_eval.py` | **P0** |
+| **ML Predictive Risk & XAI** | Random Forest with heuristic factor weight estimation | ⚠️ PARTIAL | Synthetic factor breakdowns rather than real feature importance | Real ML pipeline (train/val/test splits, baseline vs candidate, versioning), Tree/SHAP feature attribution, `ml_eval.py` | **P0** |
+| **Critical Path & What-If Simulation** | Formulaic delay estimation | ⚠️ PARTIAL | Does not compute actual topological graph earliest/latest schedule dates | Implement Critical Path Method (ES, EF, LS, LF, Slack) and recalculate schedules on scenarios | **P1** |
+| **GitHub Webhook Security & Telemetry** | Seeded events only | ⚠️ DEMO / SEEDED | No signature verification for real webhooks; values are static | Implement real webhook receiver with HMAC-SHA256 signature verification and dynamic telemetry calculation | **P1** |
+| **Cybersecurity Anomaly Detection** | Static arithmetic score calculation | ⚠️ PARTIAL | Cannot detect multivariate outlier behavioral anomalies | Implement Isolation Forest / statistical behavioral anomaly detector on security events | **P1** |
+| **Background Job Processing** | Synchronous execution inside request handlers | ⚠️ INCOMPLETE | Long-running embeddings, summaries, and forecasts block HTTP threads | Redis/async background worker pipeline for RAG indexing, report generation, and simulations | **P1** |
+| **Observability & Prometheus** | Hand-crafted text response at `/metrics` | ⚠️ PARTIAL | Not instrumenting real FastAPI request latency and error rates | Standardize with `prometheus_client` middleware and OpenTelemetry request correlation IDs | **P1** |
+| **Database Migrations (Alembic)** | Manual SQLite alteration was needed | ⚠️ INCOMPLETE | Alembic migration missing for enterprise tables | Generate clean `0002_enterprise_schema.py` migration script tested on Postgres | **P1** |
+| **Kubernetes Production Hardening** | Basic deployment YAML | ⚠️ PARTIAL | Hardcoded configurations, no namespace or secrets references | Add namespace, secrets reference, resource limits, and health probes | **P2** |
+| **AI Decision Trace UI** | Logs exist in state but not visualized step-by-step | ⚠️ PARTIAL | User cannot see full reasoning & tool execution pipeline | Create interactive AI Decision Trace drawer/view in Web and Flutter UI | **P1** |
+| **AI Evaluation Center** | Missing | ❌ MISSING | No centralized dashboard showing actual system RAG, ML, and Agent metrics | Build AI Evaluation Center page with genuine evaluation benchmarks | **P1** |

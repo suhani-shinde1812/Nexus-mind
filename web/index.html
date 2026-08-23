@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nexus Mind - Unified AI Workspace & Live Task Graph Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./src/styles/main.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="theme-dark">
+  <div id="app" class="app-container hidden">
+    <!-- TOP NAVIGATION BAR -->
+    <header class="navbar">
+      <div class="nav-brand">
+        <div class="brand-logo">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="url(#logo-grad1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 17L12 22L22 17" stroke="url(#logo-grad2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 12L12 17L22 12" stroke="url(#logo-grad3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs>
+              <linearGradient id="logo-grad1" x1="2" y1="2" x2="22" y2="12" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#00F2FE"/>
+                <stop offset="1" stop-color="#4FACFE"/>
+              </linearGradient>
+              <linearGradient id="logo-grad2" x1="2" y1="17" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#7F00FF"/>
+                <stop offset="1" stop-color="#E100FF"/>
+              </linearGradient>
+              <linearGradient id="logo-grad3" x1="2" y1="12" x2="22" y2="17" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#00F2FE"/>
+                <stop offset="1" stop-color="#7F00FF"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">NEXUS<span class="highlight">MIND</span></span>
+          <span class="brand-badge">AI WORKSPACE v2.4</span>
+        </div>
+      </div>
+
+      <!-- UNIFIED AI SEARCH BAR -->
+      <div class="nav-search-container">
+        <div class="search-input-wrapper">
+          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="globalSearchInput" placeholder="AI Search tasks (101, 108), docs, policies... (Press '/')" />
+          <kbd class="search-shortcut">/</kbd>
+        </div>
+        <div id="searchResultsDropdown" class="search-dropdown hidden"></div>
+      </div>
+
+      <!-- ROLE SELECTOR & ACTION HUD -->
+      <div class="nav-actions">
+        <!-- Theme Toggle Switch -->
+        <button id="btnToggleTheme" class="theme-toggle-btn" title="Toggle Dark/Light Theme Mode">
+          <span id="themeToggleIcon">🌙</span>
+          <span id="themeToggleText">Dark</span>
+        </button>
+
+        <!-- Role Selector Pill -->
+        <div class="role-selector-wrapper">
+          <label for="roleSelect" class="role-label">VIEW AS:</label>
+          <select id="roleSelect" class="role-select">
+            <option value="employee">👨‍💻 Employee (Alex Vance)</option>
+            <option value="team_lead" selected>👩‍💼 Team Lead (Sarah Jenkins)</option>
+            <option value="project_manager">📊 Project Mgr (Marcus Chen)</option>
+            <option value="admin">🛡️ Administrator (Elena Rostova)</option>
+          </select>
+        </div>
+
+        <!-- Trigger AI Scan -->
+        <button id="btnRunAiScan" class="btn btn-gradient btn-sm glow-cyan" title="Run AI Monitoring Risk Scan">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          </svg>
+          <span>Run AI Risk Scan</span>
+        </button>
+
+        <!-- AI Auto Rebalance Workload Button -->
+        <button id="btnAutoRebalanceNav" class="btn btn-ghost btn-sm glow-purple" title="AI Auto-Rebalance Team Workload">
+          ⚡ AI Rebalance
+        </button>
+
+        <!-- Alerts Bell -->
+        <button id="btnNotifications" class="icon-btn relative" title="View Notifications & AI Risk Drawer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+          <span id="unreadCount" class="badge-count">3</span>
+        </button>
+
+        <!-- User Profile Pill -->
+        <div class="user-pill" id="userProfilePill">
+          <div class="user-avatar" id="navUserAvatar">SJ</div>
+          <div class="user-info">
+            <span class="user-name" id="navUserName">Sarah Jenkins</span>
+            <span class="user-role-badge" id="navUserRole">Team Lead</span>
+          </div>
+        </div>
+
+        <!-- Sign Out / Switch Account Button -->
+        <button id="btnLogoutNav" class="btn btn-ghost btn-xs" title="Sign Out or Switch Account" style="color: #F87171; border-color: rgba(239, 68, 68, 0.35); display: flex; align-items: center; gap: 4px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          <span>Sign Out</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- SYSTEM ALERTS BANNER -->
+    <div id="aiAlertsBanner" class="alerts-banner hidden">
+      <div class="alert-content">
+        <span class="alert-icon">⚠️</span>
+        <span class="alert-text" id="alertText">AI Monitoring Agent detected 2 high-risk dependency bottlenecks on Critical Path!</span>
+      </div>
+      <button class="btn btn-ghost btn-xs" id="btnViewRiskDetails">View Risk Graph</button>
+      <button class="close-alert" id="btnCloseAlert">&times;</button>
+    </div>
+
+    <!-- MAIN CONTENT LAYOUT -->
+    <main class="main-layout">
+      <!-- LEFT SIDEBAR / PORTAL PANEL -->
+      <section class="portal-section glass-panel">
+        <div class="portal-header">
+          <div class="portal-title-area">
+            <h1 id="portalTitle" class="portal-title">Team Lead Portal</h1>
+            <p id="portalSub" class="portal-subtitle">Managing Sprint Alpha • 8 Active Engineers • 3 Blocked Tasks</p>
+          </div>
+          <div class="portal-header-actions">
+            <button id="btnCreateTaskModal" class="btn btn-primary btn-sm">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>New Task</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="portal-tabs">
+          <button class="tab-btn active" data-tab="overview">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            Dashboard
+          </button>
+          <button class="tab-btn" data-tab="tasks">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+            Tasks
+          </button>
+          <button class="tab-btn" data-tab="agents">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+            AI Swarm
+          </button>
+          <button class="tab-btn" data-tab="analytics">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            Analytics
+          </button>
+          <button class="tab-btn" data-tab="meetings">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            Meetings
+          </button>
+          <button class="tab-btn" data-tab="knowledge">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+            Knowledge
+          </button>
+          <button class="tab-btn" data-tab="activity">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            Audit Trail
+          </button>
+        </div>
+
+        <div id="portalTabContent" class="portal-tab-content">
+          <!-- Dynamic Content -->
+        </div>
+      </section>
+
+      <!-- RIGHT SIDE: MULTI-VIEW WORKSPACE MATRIX (GRAPH, KANBAN, GANTT) -->
+      <section class="graph-section glass-panel">
+        <div class="graph-header">
+          <div class="graph-title-area">
+            <!-- Multi-View Selector Tabs -->
+            <div class="view-switcher-group">
+              <button class="view-tab-btn active" data-view="graph">⚡ Live Graph</button>
+              <button class="view-tab-btn" data-view="kanban">📋 Kanban Board</button>
+              <button class="view-tab-btn" data-view="timeline">📅 Gantt Timeline</button>
+            </div>
+            <span class="graph-subtitle" id="viewSubtitle">Single Source of Truth • Drag node port to link dependencies</span>
+          </div>
+
+          <div class="graph-toolbar" id="graphSpecificToolbar">
+            <div class="graph-filter-group">
+              <button class="graph-filter-btn active" data-filter="all">All Nodes</button>
+              <button class="graph-filter-btn risk-only" data-filter="risk">
+                <span class="risk-dot"></span> High Risk
+              </button>
+              <button class="graph-filter-btn" data-filter="critical">Critical Path</button>
+            </div>
+            
+            <div class="graph-action-group">
+              <button id="btnGraphReset" class="icon-btn" title="Reset View Canvas">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+              </button>
+              <button id="btnGraphZoomIn" class="icon-btn" title="Zoom In">+</button>
+              <button id="btnGraphZoomOut" class="icon-btn" title="Zoom Out">-</button>
+              <button id="btnTogglePhysics" class="btn btn-ghost btn-xs glow-purple" title="Toggle Auto Node Physics">
+                <span>Physics: ON</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1. LIVE GRAPH CONTAINER -->
+        <div id="graphCanvasContainer" class="graph-canvas-container">
+          <svg id="graphSvg" class="graph-svg"></svg>
+          
+          <div class="graph-legend">
+            <div class="legend-item"><span class="node-sample done"></span> Completed</div>
+            <div class="legend-item"><span class="node-sample progress"></span> In Progress</div>
+            <div class="legend-item"><span class="node-sample blocked"></span> Blocked</div>
+            <div class="legend-item"><span class="node-sample risk"></span> AI Risk Halo</div>
+            <div class="legend-item"><span class="edge-sample dep"></span> Dependency Vector</div>
+          </div>
+
+          <div id="graphTooltip" class="graph-tooltip hidden"></div>
+        </div>
+
+        <!-- 2. KANBAN BOARD CONTAINER -->
+        <div id="kanbanContainer" class="kanban-container hidden"></div>
+
+        <!-- 3. GANTT TIMELINE CONTAINER -->
+        <div id="ganttContainer" class="gantt-container hidden"></div>
+
+        <!-- Node Inspector Drawer (Slide in on circle click) -->
+        <div id="nodeDetailDrawer" class="node-detail-drawer hidden">
+          <button id="btnCloseNodeDrawer" class="close-drawer">&times;</button>
+          <div id="nodeDrawerContent"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- FLOATING TOAST NOTIFICATION CONTAINER -->
+    <div id="nexusToastContainer" class="toast-container"></div>
+
+
+    <!-- FOOTER AI AGENT HUD & NATURAL LANGUAGE LAUNCHER -->
+    <footer class="ai-hud-footer glass-panel">
+      <div class="ai-agent-pills">
+        <div class="agent-pill active" id="agentMonitoringPill">
+          <div class="agent-avatar monitoring">🤖</div>
+          <div class="agent-info">
+            <span class="agent-name">AI Monitoring Agent</span>
+            <span class="agent-status" id="monitoringStatus">Scanning SLA & Risk Matrix...</span>
+          </div>
+        </div>
+
+        <div class="agent-pill active" id="agentAssistantPill">
+          <div class="agent-avatar assistant">💡</div>
+          <div class="agent-info">
+            <span class="agent-name">AI Assistant Agent</span>
+            <span class="agent-status" id="assistantStatus">Ready for Prompts</span>
+          </div>
+        </div>
+
+        <div class="agent-pill active" id="agentSearchPill">
+          <div class="agent-avatar search">🔍</div>
+          <div class="agent-info">
+            <span class="agent-name">AI Search Agent</span>
+            <span class="agent-status" id="searchStatus">Indexed 48 Tasks & Docs</span>
+          </div>
+        </div>
+      </div>
+
+      <form id="aiPromptForm" class="ai-prompt-form">
+        <div class="prompt-input-container">
+          <span class="sparkle-icon">✨</span>
+          <input type="text" id="aiPromptInput" placeholder="Ask AI Assistant: 'Break down OAuth', 'Who has bandwidth?', or 'TASK-102 details'..." />
+          <button type="submit" class="btn btn-primary btn-sm">
+            <span>Send Prompt</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+          </button>
+        </div>
+      </form>
+    </footer>
+
+    <!-- DRAWER: NOTIFICATIONS -->
+    <div id="notificationsDrawer" class="notifications-drawer hidden">
+      <div class="drawer-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.2rem;">🔔</span>
+          <h3 style="font-size: 1.05rem; color: var(--text-primary);">AI Notifications & Risk Hazards</h3>
+        </div>
+        <button id="btnCloseNotifications" class="close-drawer">&times;</button>
+      </div>
+      <div id="notificationsList" class="drawer-body">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
+
+    <!-- MODAL 1: CREATE TASK MODAL -->
+    <div id="taskModal" class="modal-backdrop hidden">
+      <div class="modal-window glass-panel">
+        <div class="modal-header">
+          <h2 id="taskModalTitle" class="modal-title">Create New Engineering Task</h2>
+          <button class="close-modal" id="btnCloseTaskModal">&times;</button>
+        </div>
+        <form id="taskForm" class="modal-form">
+          <div class="form-group">
+            <label>Task Title</label>
+            <input type="text" id="taskTitleInput" placeholder="e.g. Implement OAuth2 Refresh Tokens" required />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Assignee</label>
+              <select id="taskAssigneeSelect" required>
+                <option value="Alex Vance">Alex Vance (Frontend Lead)</option>
+                <option value="Sarah Jenkins">Sarah Jenkins (Team Lead)</option>
+                <option value="Devon Reed">Devon Reed (Backend Eng)</option>
+                <option value="Priya Sharma">Priya Sharma (AI/ML Eng)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Priority</label>
+              <select id="taskPrioritySelect">
+                <option value="Low">Low</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="High">High</option>
+                <option value="Critical">Critical 🔥</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Parent Project</label>
+              <select id="taskProjectSelect">
+                <option value="Sprint Alpha - Cloud Migration">Sprint Alpha - Cloud Migration</option>
+                <option value="Mobile App v2.0">Mobile App v2.0</option>
+                <option value="Security & Compliance">Security & Compliance</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Depends On Task (Prerequisite)</label>
+              <select id="taskDependencySelect">
+                <option value="">None (Standalone)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Deadline (Due Date)</label>
+              <input type="date" id="taskDeadlineInput" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="taskDescInput" rows="3" placeholder="Provide clear acceptance criteria and technical scope..."></textarea>
+          </div>
+
+          <div class="ai-suggest-box">
+            <div class="ai-suggest-header">
+              <span>✨ AI Assistant Subtask Generator</span>
+              <button type="button" id="btnGenerateAiSubtasks" class="btn btn-ghost btn-xs">Auto-Decompose Task</button>
+            </div>
+            <div id="aiSubtasksPreview" class="subtasks-preview">
+              <span class="text-muted">Click Auto-Decompose to let AI split this task into actionable sub-steps.</span>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" id="btnCancelTaskModal">Cancel</button>
+            <button type="submit" class="btn btn-gradient glow-purple">Save & Publish to Live Graph</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL 4: SCHEDULE TEAM MEETING MODAL -->
+    <div id="meetingModal" class="modal-backdrop hidden">
+      <div class="modal-window glass-panel">
+        <div class="modal-header">
+          <h2 class="modal-title">📅 Schedule Team Meeting</h2>
+          <button class="close-modal" id="btnCloseMeetingModal">&times;</button>
+        </div>
+        <form id="meetingForm" class="modal-form">
+          <div class="form-group">
+            <label>Meeting Title</label>
+            <input type="text" id="meetingTitleInput" placeholder="e.g. Sprint Alpha Blocker Review" required />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Team / Project</label>
+              <select id="meetingProjectSelect">
+                <option value="Sprint Alpha - Cloud Migration">Sprint Alpha - Cloud Migration</option>
+                <option value="Mobile App v2.0">Mobile App v2.0</option>
+                <option value="Security & Compliance">Security & Compliance</option>
+                <option value="General">General / Cross-team</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Duration</label>
+              <select id="meetingDurationSelect">
+                <option value="15">15 minutes</option>
+                <option value="30" selected>30 minutes</option>
+                <option value="45">45 minutes</option>
+                <option value="60">60 minutes</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Date</label>
+              <input type="date" id="meetingDateInput" required />
+            </div>
+            <div class="form-group">
+              <label>Time</label>
+              <input type="time" id="meetingTimeInput" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Attendees</label>
+            <div id="meetingAttendeesList" class="attendee-checkbox-list">
+              <!-- Populated dynamically with team member checkboxes -->
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Agenda / Notes</label>
+            <textarea id="meetingAgendaInput" rows="3" placeholder="What will this meeting cover?"></textarea>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" id="btnCancelMeetingModal">Cancel</button>
+            <button type="submit" class="btn btn-gradient glow-purple">Schedule Meeting</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- LIVE VIDEO MEETING MODAL -->
+<div id="liveMeetingModal" class="modal-backdrop hidden">
+  <div class="live-meeting-window">
+
+    <div class="live-meeting-header">
+      <div>
+        <h2 id="liveMeetingTitle">Nexus Mind Meeting</h2>
+        <span id="liveMeetingRoom"></span>
+      </div>
+
+      <button
+        type="button"
+        id="btnCloseLiveMeeting"
+        class="close-modal">
+        &times;
+      </button>
+    </div>
+
+    <div id="jitsiContainer" class="jitsi-container"></div>
+
+  </div>
+</div>
+
+    <!-- MODAL 2: AI ASSISTANT CHAT MODAL -->
+    <div id="aiChatModal" class="modal-backdrop hidden">
+      <div class="modal-window glass-panel chat-modal">
+        <div class="modal-header">
+          <div class="chat-header-title">
+            <span class="agent-avatar assistant">💡</span>
+            <div>
+              <h3>Nexus AI Assistant Co-Pilot</h3>
+              <p class="subtitle">Powered by Autonomous AI Agents Engine</p>
+            </div>
+          </div>
+          <button class="close-modal" id="btnCloseChatModal">&times;</button>
+        </div>
+        <div id="chatMessages" class="chat-messages">
+          <div class="chat-message assistant">
+            <div class="msg-avatar">💡</div>
+            <div class="msg-bubble">
+              Hello! I am your AI Assistant. I can auto-generate sprint reports, detect team workload bottlenecks, decompose complex tasks, or answer questions about your Live Task Graph. How can I help you today?
+            </div>
+          </div>
+        </div>
+        <div class="chat-input-area">
+          <input type="text" id="chatInput" placeholder="Ask AI anything about tasks, risks, or schedule..." />
+          <button id="btnSendChat" class="btn btn-primary btn-sm">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 3: DOCUMENT READER MODAL -->
+    <div id="docViewerModal" class="modal-backdrop hidden">
+      <div class="modal-window glass-panel" style="width: 580px;">
+        <div class="modal-header">
+          <h2 id="docModalTitle" class="modal-title">📄 Document Viewer</h2>
+          <button class="close-modal" id="btnCloseDocModal">&times;</button>
+        </div>
+        <div id="docModalBody" style="line-height: 1.6; font-size: 0.875rem; color: var(--text-primary);">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://meet.jit.si/external_api.js"></script>
+  <script type="module" src="./src/js/app.js"></script>
+</body>
+</html>

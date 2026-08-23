@@ -1,0 +1,45 @@
+{
+  "benchmark_timestamp": "2026-08-22T10:36:24.962165",
+  "model_version": "2.1.0",
+  "model_type": "RandomForestClassifier",
+  "metrics": {
+    "baseline_logistic_regression": {
+      "accuracy": 0.9222,
+      "precision": 0.92,
+      "recall": 0.9388,
+      "f1_score": 0.9293,
+      "roc_auc": 0.9756
+    },
+    "candidate_random_forest": {
+      "accuracy": 0.9667,
+      "precision": 0.96,
+      "recall": 0.9796,
+      "f1_score": 0.9697,
+      "roc_auc": 0.991
+    }
+  },
+  "feature_importances": {
+    "in_degree_deps": 0.2698,
+    "priority_weight": 0.0612,
+    "assignee_capacity": 0.1202,
+    "assignee_active_tasks": 0.0446,
+    "days_until_deadline": 0.1683,
+    "has_blocked_dep": 0.2086,
+    "description_length": 0.0531,
+    "historical_delay_rate": 0.0743
+  },
+  "sample_prediction": {
+    "task_id": "TASK-102",
+    "predicted_risk": 0.7,
+    "risk_level": "High",
+    "xai_factors": {
+      "Dependency Block Hazard": 0.0,
+      "Assignee Workload Overload": 0.14,
+      "Target Deadline Proximity": 0.3,
+      "Priority Criticality": 0.32,
+      "Historical Delay Factor": 0.01
+    },
+    "recommendation": "Monitor prerequisite dependencies and verify API contract readiness."
+  },
+  "status": "PASSED"
+}

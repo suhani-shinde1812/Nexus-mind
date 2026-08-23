@@ -1,0 +1,31 @@
+{
+  "benchmark_timestamp": "2026-08-22T10:36:14.150985",
+  "total_test_queries": 3,
+  "retrieval_precision_at_k": 1.0,
+  "citation_accuracy": 1.0,
+  "hallucination_rejection_rate": 1.0,
+  "groundedness_score": 0.96,
+  "status": "PASSED",
+  "details": [
+    {
+      "query": "How is Multi-Factor Authentication implemented in Nexus Mind?",
+      "in_scope": true,
+      "citations_count": 2,
+      "matched_expected": true,
+      "answer_snippet": "According to internal engineering documentation (**Nexus Mind System Architecture Specification** \u2014 1. Core Live Task Gr"
+    },
+    {
+      "query": "What is the Redis pub/sub real-time architecture?",
+      "in_scope": true,
+      "citations_count": 1,
+      "matched_expected": true,
+      "answer_snippet": "According to internal engineering documentation (**Nexus Mind System Architecture Specification** \u2014 2. Realtime Synchron"
+    },
+    {
+      "query": "How to bake a sourdough bread in French bakery?",
+      "in_scope": false,
+      "correct_fallback": true,
+      "answer_snippet": "I couldn't find enough information in the available Nexus Mind knowledge base."
+    }
+  ]
+}
