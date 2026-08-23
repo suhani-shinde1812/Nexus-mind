@@ -10,6 +10,7 @@ Cybersecurity & IAM Layer:
 """
 import hashlib
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
@@ -66,8 +67,15 @@ def decrypt_secret(encrypted_secret: str) -> str:
 # --------------------------------------------------------------------------
 def _create_token(subject: str, expires_delta: timedelta, token_type: Literal["access", "refresh", "temp"]) -> str:
     now = datetime.now(timezone.utc)
-    payload = {"sub": subject, "type": token_type, "iat": now, "exp": now + expires_delta}
+    payload = {
+        "sub": subject,
+        "type": token_type,
+        "jti": uuid.uuid4().hex,
+        "iat": now,
+        "exp": now + expires_delta,
+    }
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+
 
 
 def create_access_token(user_id: str) -> str:

@@ -1,10 +1,11 @@
 """
 Pydantic request/response schemas for Nexus Mind — Enterprise AI Engineering Operations Platform.
+Compatible with Pydantic v2 (FastAPI 0.115+).
 """
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 # --------------------------------------------------------------------------
@@ -17,7 +18,7 @@ class RegisterIn(BaseModel):
     role: str = "Team Member"
     app_role: str = "employee"
     avatar: Optional[str] = None
-    skills: list[str] = []
+    skills: list[str] = Field(default_factory=list)
 
 
 class LoginIn(BaseModel):
@@ -51,11 +52,12 @@ class MfaVerifyIn(BaseModel):
 class MfaEnableOut(BaseModel):
     status: str
     message: str
-    backup_codes: list[str] = []
-
+    backup_codes: list[str] = Field(default_factory=list)
 
 
 class UserSessionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     user_id: str
     user_agent: str
@@ -64,14 +66,13 @@ class UserSessionOut(BaseModel):
     created_at: datetime
     expires_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 # --------------------------------------------------------------------------
 # User
 # --------------------------------------------------------------------------
 class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     name: str
     email: EmailStr
@@ -80,11 +81,8 @@ class UserOut(BaseModel):
     avatar: str
     capacity: int
     active_tasks: int
-    skills: list[str]
+    skills: list[str] = Field(default_factory=list)
     mfa_enabled: bool = False
-
-    class Config:
-        from_attributes = True
 
 
 class UserUpdateIn(BaseModel):
@@ -98,14 +96,13 @@ class UserUpdateIn(BaseModel):
 # Project
 # --------------------------------------------------------------------------
 class ProjectOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     name: str
     lead: str
     deadline: str
     progress: int
-
-    class Config:
-        from_attributes = True
 
 
 class ProjectIn(BaseModel):
@@ -119,6 +116,8 @@ class ProjectIn(BaseModel):
 # Task & Comments
 # --------------------------------------------------------------------------
 class TaskCommentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     task_id: str
     author_id: str
@@ -127,15 +126,14 @@ class TaskCommentOut(BaseModel):
     content: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class TaskCommentIn(BaseModel):
     content: str
 
 
 class TaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
     id: str
     title: str
     description: str = ""
@@ -151,10 +149,6 @@ class TaskOut(BaseModel):
     riskReason: Optional[str] = Field(default=None, alias="risk_reason")
     comments_count: int = 0
 
-    class Config:
-        populate_by_name = True
-        from_attributes = True
-
 
 class TaskCreateIn(BaseModel):
     title: str
@@ -163,7 +157,7 @@ class TaskCreateIn(BaseModel):
     assignee: Optional[str] = None
     status: str = "in_progress"
     priority: str = "Medium"
-    dependsOn: list[str] = []
+    dependsOn: list[str] = Field(default_factory=list)
     dueDate: Optional[str] = None
 
 
@@ -191,8 +185,8 @@ class ReassignmentCandidate(BaseModel):
     avatar: str
     capacity: int
     activeTasks: int
-    skills: list[str]
-    matchedSkills: list[str]
+    skills: list[str] = Field(default_factory=list)
+    matchedSkills: list[str] = Field(default_factory=list)
     skillMatch: bool
     similarity: float
 
@@ -209,15 +203,15 @@ class DecomposeIn(BaseModel):
 class SubtaskOut(BaseModel):
     title: str
     estimatedHours: float
-    suggestedSkills: list[str] = []
+    suggestedSkills: list[str] = Field(default_factory=list)
     priority: str = "Medium"
 
 
 class RiskScoreOut(BaseModel):
     taskId: str
     aiRiskScore: float
-    riskReason: Optional[str]
-    factors: dict[str, Any] = {}
+    riskReason: Optional[str] = None
+    factors: dict[str, Any] = Field(default_factory=dict)
 
 
 # --------------------------------------------------------------------------
@@ -241,11 +235,13 @@ class RagQueryIn(BaseModel):
 class RagQueryOut(BaseModel):
     query: str
     answer: str
-    citations: list[Citation] = []
+    citations: list[Citation] = Field(default_factory=list)
     agent: str = "Knowledge Agent"
 
 
 class DocumentChunkOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     document_id: str
     chunk_index: int
@@ -253,11 +249,10 @@ class DocumentChunkOut(BaseModel):
     page_number: int
     section_title: str
 
-    class Config:
-        from_attributes = True
-
 
 class DocumentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     title: str
     filename: str
@@ -268,15 +263,12 @@ class DocumentOut(BaseModel):
     created_at: datetime
     chunk_count: int = 0
 
-    class Config:
-        from_attributes = True
-
 
 # --------------------------------------------------------------------------
 # Machine Learning & Simulation
 # --------------------------------------------------------------------------
 class SimulationIn(BaseModel):
-    unavailable_members: list[str] = []
+    unavailable_members: list[str] = Field(default_factory=list)
     scope_increase_tasks: int = 0
     added_developers: int = 0
     priority_shift_task_id: Optional[str] = None
@@ -288,8 +280,8 @@ class SimulationOut(BaseModel):
     simulated_days: float
     delta_days: float
     on_time_probability: float
-    new_bottlenecks: list[str] = []
-    recommendations: list[str] = []
+    new_bottlenecks: list[str] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list)
 
 
 class MlRiskPredictionOut(BaseModel):
@@ -305,6 +297,8 @@ class MlRiskPredictionOut(BaseModel):
 # Cybersecurity & Audit Logs
 # --------------------------------------------------------------------------
 class AuditLogOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     actor_id: Optional[str] = None
     actor_name: str
@@ -313,14 +307,13 @@ class AuditLogOut(BaseModel):
     resource_id: Optional[str] = None
     ip_address: str
     user_agent: str
-    details: dict[str, Any] = {}
+    details: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class SecurityEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     severity: str
     event_type: str
@@ -329,16 +322,13 @@ class SecurityEventOut(BaseModel):
     status: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class ThreatRadarOut(BaseModel):
     threat_score: int  # 0 - 100
     threat_level: str  # SECURE | ELEVATED | HIGH | CRITICAL
     active_threats_count: int
     failed_logins_24h: int
-    recent_anomalies: list[SecurityEventOut] = []
+    recent_anomalies: list[SecurityEventOut] = Field(default_factory=list)
 
 
 # --------------------------------------------------------------------------
@@ -351,6 +341,8 @@ class GithubIntegrationIn(BaseModel):
 
 
 class GithubIntegrationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     repo_name: str
     repo_url: str
@@ -358,11 +350,10 @@ class GithubIntegrationOut(BaseModel):
     is_active: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class GithubEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     integration_id: str
     event_type: str
@@ -370,11 +361,8 @@ class GithubEventOut(BaseModel):
     title: str
     author: str
     status: str
-    details: dict[str, Any] = {}
+    details: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class EngineeringMetricsOut(BaseModel):
@@ -384,29 +372,28 @@ class EngineeringMetricsOut(BaseModel):
     commits_last_7d: int
     ci_success_rate: float
     deployment_frequency: str
-    recent_events: list[GithubEventOut] = []
+    recent_events: list[GithubEventOut] = Field(default_factory=list)
 
 
 # --------------------------------------------------------------------------
 # Meeting
 # --------------------------------------------------------------------------
 class MeetingOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     title: str
     project: str
     date: str
     time: str
     duration: str
-    attendees: list[str]
+    attendees: list[str] = Field(default_factory=list)
     agenda: str
     organizer: str
     status: str
     link: str
     ai_summary: Optional[str] = None
-    action_items: list[str] = []
-
-    class Config:
-        from_attributes = True
+    action_items: list[str] = Field(default_factory=list)
 
 
 class MeetingIn(BaseModel):
@@ -415,7 +402,7 @@ class MeetingIn(BaseModel):
     date: str
     time: str
     duration: str = "30"
-    attendees: list[str] = []
+    attendees: list[str] = Field(default_factory=list)
     agenda: str = ""
 
 
@@ -423,17 +410,18 @@ class MeetingIn(BaseModel):
 # Policy & Alert
 # --------------------------------------------------------------------------
 class PolicyOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     title: str
     category: str
-    tags: list[str]
+    tags: list[str] = Field(default_factory=list)
     summary: str
-
-    class Config:
-        from_attributes = True
 
 
 class AlertOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
     id: str
     severity: str
     title: str
@@ -441,10 +429,6 @@ class AlertOut(BaseModel):
     taskId: Optional[str] = Field(default=None, alias="task_id")
     read: bool
     timestamp: datetime = Field(alias="created_at")
-
-    class Config:
-        populate_by_name = True
-        from_attributes = True
 
 
 class AlertIn(BaseModel):
@@ -465,7 +449,7 @@ class BootstrapOut(BaseModel):
     policies: list[PolicyOut]
     aiAlerts: list[AlertOut]
     meetings: list[MeetingOut]
-    activityLogs: list[dict[str, Any]] = []
+    activityLogs: list[dict[str, Any]] = Field(default_factory=list)
     systemStats: dict[str, Any]
     securityThreat: Optional[ThreatRadarOut] = None
     engineeringMetrics: Optional[EngineeringMetricsOut] = None

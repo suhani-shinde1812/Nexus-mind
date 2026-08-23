@@ -139,8 +139,14 @@ def login(
     return schemas.TokenOut(access_token=access, refresh_token=refresh)
 
 
+@router.get("/me", response_model=schemas.UserOut)
+def get_me(current_user: models.User = Depends(get_current_user)):
+    return current_user
+
+
 # --------------------------------------------------------------------------
 # MFA (TOTP) Endpoints
+
 # --------------------------------------------------------------------------
 @router.post("/mfa/setup", response_model=schemas.MfaSetupOut)
 def mfa_setup(current_user: models.User = Depends(get_current_user)):
@@ -320,6 +326,7 @@ def list_sessions(current_user: models.User = Depends(get_current_user), db: Ses
 
 
 @router.delete("/sessions/{session_id}")
+@router.post("/sessions/{session_id}/revoke")
 def revoke_session(
     session_id: str,
     current_user: models.User = Depends(get_current_user),
@@ -332,4 +339,4 @@ def revoke_session(
 
     session.is_revoked = True
     db.commit()
-    return {"status": "revoked", "session_id": session_id}
+    return {"status": "ok", "message": "Session revoked successfully"}
