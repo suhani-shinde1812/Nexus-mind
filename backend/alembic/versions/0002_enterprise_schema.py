@@ -25,7 +25,23 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
     )
 
-    # 2. User Sessions
+    # 2. Add Organization & MFA columns to existing users table
+    with op.batch_alter_table("users") as batch_op:
+        batch_op.add_column(sa.Column("org_id", sa.String(36), sa.ForeignKey("organizations.id", name="fk_users_org_id"), nullable=True))
+        batch_op.add_column(sa.Column("mfa_enabled", sa.Boolean, server_default=sa.false()))
+        batch_op.add_column(sa.Column("mfa_secret", sa.String(255), nullable=True))
+        batch_op.add_column(sa.Column("mfa_backup_codes", sa.JSON, server_default="[]"))
+
+    # 3. Add Organization column to projects table
+    with op.batch_alter_table("projects") as batch_op:
+        batch_op.add_column(sa.Column("org_id", sa.String(36), sa.ForeignKey("organizations.id", name="fk_projects_org_id"), nullable=True))
+
+    # 4. Add Organization column to tasks table
+    with op.batch_alter_table("tasks") as batch_op:
+        batch_op.add_column(sa.Column("org_id", sa.String(36), sa.ForeignKey("organizations.id", name="fk_tasks_org_id"), nullable=True))
+
+
+    # 5. User Sessions
     op.create_table(
         "user_sessions",
         sa.Column("id", sa.String(36), primary_key=True),
@@ -38,7 +54,7 @@ def upgrade() -> None:
         sa.Column("expires_at", sa.DateTime, nullable=False),
     )
 
-    # 3. Task Comments
+    # 6. Task Comments
     op.create_table(
         "task_comments",
         sa.Column("id", sa.String(36), primary_key=True),
@@ -48,7 +64,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
     )
 
-    # 4. Documents & Document Chunks (RAG Knowledge Engine)
+    # 7. Documents & Document Chunks (RAG Knowledge Engine)
     op.create_table(
         "documents",
         sa.Column("id", sa.String(36), primary_key=True),
@@ -74,7 +90,7 @@ def upgrade() -> None:
         sa.Column("embedding_vector", sa.JSON, server_default="[]"),
     )
 
-    # 5. Security Events & Audit Logs
+    # 8. Security Events & Audit Logs
     op.create_table(
         "security_events",
         sa.Column("id", sa.String(36), primary_key=True),
@@ -103,7 +119,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
     )
 
-    # 6. GitHub Integration & Telemetry Events
+    # 9. GitHub Integration & Telemetry Events
     op.create_table(
         "github_integrations",
         sa.Column("id", sa.String(36), primary_key=True),
@@ -138,4 +154,13 @@ def downgrade() -> None:
     op.drop_table("documents")
     op.drop_table("task_comments")
     op.drop_table("user_sessions")
+    with op.batch_alter_table("tasks") as batch_op:
+        batch_op.drop_column("org_id")
+    with op.batch_alter_table("projects") as batch_op:
+        batch_op.drop_column("org_id")
+    with op.batch_alter_table("users") as batch_op:
+        batch_op.drop_column("mfa_backup_codes")
+        batch_op.drop_column("mfa_secret")
+        batch_op.drop_column("mfa_enabled")
+        batch_op.drop_column("org_id")
     op.drop_table("organizations")

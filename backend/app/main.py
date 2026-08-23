@@ -73,6 +73,7 @@ app.include_router(evaluation_router.router)
 
 
 @app.get("/api/health")
+@app.get("/health")
 def health():
     return {"status": "ok", "platform": "Nexus Mind Enterprise", "version": "2.0.0"}
 
@@ -82,19 +83,55 @@ import os
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-web_dist_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "web", "dist")
-if os.path.exists(web_dist_path):
+
+def find_web_dist_path() -> str | None:
+    candidates = [
+        os.environ.get("FRONTEND_DIST_DIR"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "web", "dist"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web", "dist"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "web", "dist"),
+        os.path.join(os.getcwd(), "web", "dist"),
+        os.path.join(os.getcwd(), "dist"),
+    ]
+    for p in candidates:
+        if p and os.path.exists(p) and os.path.isdir(p):
+            index_file = os.path.join(p, "index.html")
+            if os.path.exists(index_file):
+                return os.path.abspath(p)
+    return None
+
+
+web_dist_path = find_web_dist_path()
+if web_dist_path:
     assets_dir = os.path.join(web_dist_path, "assets")
     if os.path.exists(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
     @app.get("/{full_path:path}")
     async def serve_spa_frontend(full_path: str):
-        if full_path.startswith("api") or full_path.startswith("ws") or full_path.startswith("metrics") or full_path.startswith("docs") or full_path.startswith("openapi.json"):
+        if (
+            full_path.startswith("api")
+            or full_path.startswith("ws")
+            or full_path.startswith("metrics")
+            or full_path.startswith("docs")
+            or full_path.startswith("openapi.json")
+            or full_path.startswith("redoc")
+            or full_path == "health"
+        ):
             from fastapi import HTTPException
             raise HTTPException(status_code=404, detail="Not Found")
         file_path = os.path.join(web_dist_path, full_path)
-        if os.path.isfile(file_path):
+        if full_path and os.path.isfile(file_path):
             return FileResponse(file_path)
         return FileResponse(os.path.join(web_dist_path, "index.html"))
+
+
+
+if __name__ == "__main__":
+    import uvicorn
+    cfg = get_settings()
+    server_port = int(os.environ.get("PORT", cfg.port))
+    server_host = os.environ.get("HOST", cfg.host)
+    uvicorn.run("app.main:app", host=server_host, port=server_port, reload=False)
+
 

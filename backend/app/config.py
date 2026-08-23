@@ -12,10 +12,14 @@ class Settings(BaseSettings):
 
     # Environment & Demo Mode
     environment: str = "development"
-    demo_mode: bool = True
+    demo_mode: bool = False
+    port: int = 8000
+    host: str = "0.0.0.0"
+
 
     # Database
     database_url: str = "sqlite:///./nexusmind.db"
+
 
     # Auth & Encryption
     jwt_secret_key: str = "nexus-prod-jwt-secret-key-2026-secure-32chars"

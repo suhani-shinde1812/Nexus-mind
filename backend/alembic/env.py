@@ -9,7 +9,11 @@ from app import models  # noqa: F401  -- registers all models on Base.metadata
 
 config = context.config
 settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.database_url)
+db_url = settings.database_url
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+config.set_main_option("sqlalchemy.url", db_url)
+
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
