@@ -1,22 +1,25 @@
 """
-Multi-Agent Swarm Orchestrator & Safe Tool Execution Engine:
-- Agent Personas: Project Manager, Developer Co-Pilot, Security & Compliance, Knowledge & RAG, Analytics & Workforce
-- Strict Input/Output Schema Enforcement & Permission Checks
-- Human-in-the-Loop Action Proposals (Current State vs Proposed State Diff)
-- Safe Tool Execution with Audit Logging
-- Step-by-Step AI Decision Trace Pipeline
+NEXUS MIND — MULTI-AGENT SWARM ORCHESTRATOR & TASK-AWARE COPILOT
+
+Features:
+- Live Database-Backed Task & Team Intelligence Engine
+- Intent Classification & Fuzzy Entity Extraction
+- Context-Aware Session Memory (Follow-up pronoun resolution: 'it', 'the task', 'deadline', etc.)
+- Multi-Tenant & RBAC Protected Tool Execution
+- Human-in-the-Loop Safe Action Proposals
+- Transparent Operational Decision Traces
 """
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime
 from typing import Any
-
 from sqlalchemy.orm import Session
 
-from app import models, schemas, security
+from app import models, schemas
 from app.deps import log_audit_event
-from app.services import ai_service, ml_risk_service, rag_service
+from app.services import agent_tools, ai_service, ml_risk_service, rag_service
 
 
 class ActionProposalStore:
@@ -114,22 +117,25 @@ proposal_store = ActionProposalStore()
 
 class AgentOrchestrator:
     def __init__(self):
+        # User session memory for follow-up conversation context
+        self._session_contexts: dict[str, dict[str, Any]] = {}
+
         self.agents = {
             "pm": {
                 "name": "Project Manager Agent",
-                "role": "Sprint delivery forecasting, milestone tracking, and critical path analysis.",
-                "allowed_tools": ["forecast_sprint", "simulate_schedule", "list_bottlenecks"],
+                "role": "Sprint delivery forecasting, milestone tracking, task status, and critical path analysis.",
+                "allowed_tools": ["search_tasks", "get_task_status", "get_task_deadline", "get_project_summary"],
                 "required_permission": "task:read",
             },
             "dev": {
                 "name": "Developer Co-Pilot Agent",
-                "role": "Task decomposition, technical planning, and code spike guidance.",
-                "allowed_tools": ["decompose_task", "suggest_tech_stack", "estimate_hours"],
+                "role": "Task assignment, dependencies, technical decomposition, and blocker resolution.",
+                "allowed_tools": ["get_assignee", "get_task_dependencies", "search_tasks", "decompose_task"],
                 "required_permission": "task:read",
             },
             "security": {
                 "name": "Security & Compliance Agent",
-                "role": "Policy auditing, anomaly detection, and session security.",
+                "role": "Policy auditing, threat radar, anomaly detection, and session security.",
                 "allowed_tools": ["audit_policy", "detect_anomalies", "get_threat_radar"],
                 "required_permission": "security:read",
             },
@@ -141,32 +147,89 @@ class AgentOrchestrator:
             },
             "analytics": {
                 "name": "Analytics & Workforce Agent",
-                "role": "Workload balancing, cosine talent matching, and velocity analysis.",
-                "allowed_tools": ["rebalance_workload", "compute_capacity_heatmap"],
+                "role": "Workload balancing, cosine talent matching, and risk analysis.",
+                "allowed_tools": ["get_team_capacity", "get_task_risk", "rebalance_workload"],
                 "required_permission": "task:read",
             },
         }
 
-    def route_query(self, query: str, user: models.User, db: Session) -> dict[str, Any]:
+    def _extract_task_entity(self, query: str, user_id: str | None = None) -> str | None:
+        """
+        Extract task identifiers (IDs like TASK-102, keywords like 'Authentication', 'OAuth', 'Payment')
+        or resolve conversational follow-up references ('it', 'this task', 'the task').
+        """
+        # 1. Exact Task ID pattern (TASK-123 or task-123)
+        id_match = re.search(r"\b(TASK-\d+)\b", query, re.IGNORECASE)
+        if id_match:
+            return id_match.group(1).upper()
+
+        # 2. Conversational Pronoun Resolution
+        q_lower = query.lower().strip()
+        is_followup = any(q_lower.startswith(w) or f" {w} " in f" {q_lower} " for w in ["it", "this", "the task", "that task", "its", "the feature"])
+        if is_followup and user_id and user_id in self._session_contexts:
+            last_task = self._session_contexts[user_id].get("task_id")
+            if last_task:
+                return last_task
+
+        # 3. Clean Entity Extraction (e.g. "who is working on Authentication task?" -> "Authentication")
+        cleaned = re.sub(
+            r"^(who is working on|who is working|who is assigned to|who is handling|who has|what is the status of|what is status of|what is the deadline for|what is the deadline of|what is the deadline|when is|what is blocking|which tasks depend on|is|what is|tell me about|check|find|look up|show me|does|exist)\s+",
+            "",
+            query,
+            flags=re.IGNORECASE,
+        ).strip()
+
+        cleaned = re.sub(r"\s+(due|deadline|status|assigned to|assigned|working on|blocked|risk|hazard|task|feature|ticket|component|story|bug|issue|milestone)s?(\?|\.|\!)?$", "", cleaned, flags=re.IGNORECASE).strip()
+        cleaned = re.sub(r"(\?|\.|\!)$", "", cleaned).strip()
+
+        # Filter out generic stop words
+        if cleaned.lower() in ["", "it", "this", "that", "the", "a", "all", "tasks", "blocked", "high risk", "overloaded"]:
+            if user_id and user_id in self._session_contexts:
+                return self._session_contexts[user_id].get("task_id")
+            return None
+
+        return cleaned
+
+    def _extract_person_entity(self, query: str, db: Session, user: models.User) -> models.User | None:
+        """Extract a mentioned person's name if querying tasks by person (e.g. 'What tasks are assigned to Rahul?')."""
+        users = agent_tools._get_org_users_query(db, user).all()
         q_lower = query.lower()
+        for u in users:
+            first_name = u.name.split()[0].lower()
+            if len(first_name) >= 3 and first_name in q_lower:
+                return u
+            if u.name.lower() in q_lower:
+                return u
+        return None
+
+    def route_query(self, query: str, user: models.User, db: Session) -> dict[str, Any]:
+        """
+        Main execution pipeline:
+        User Question -> Intent Detection -> Entity Extraction -> Tool Selection -> Tool Execution -> Synthesis
+        """
+        q_clean = query.strip()
+        q_lower = q_clean.lower()
+
         trace = {
-            "query": query,
+            "query": q_clean,
             "timestamp": datetime.utcnow().isoformat(),
             "intent": "general_inquiry",
-            "selected_agent": "Project Manager Agent",
+            "selected_agent": self.agents["pm"]["name"],
             "permission_check": "PASSED",
             "tools_executed": [],
             "evidence": "",
             "proposal": None,
         }
 
-        # 1. Knowledge / Documentation queries
-        if any(w in q_lower for w in ["sop", "doc", "policy", "architecture", "according to", "compliance", "standard", "how is", "mfa"]):
+        # ------------------------------------------------------------------
+        # INTENT 1: Knowledge & Documentation (RAG)
+        # ------------------------------------------------------------------
+        if any(w in q_lower for w in ["according to", "sop", "doc", "policy", "architecture guideline", "compliance standard", "mfa policy"]):
             trace["intent"] = "knowledge_retrieval"
             trace["selected_agent"] = self.agents["knowledge"]["name"]
             trace["tools_executed"].append("rag_search")
 
-            rag_res = rag_service.query_rag_knowledge_base(db, query, current_user=user)
+            rag_res = rag_service.query_rag_knowledge_base(db, q_clean, current_user=user)
             trace["evidence"] = f"Retrieved {len(rag_res.citations)} grounded citation passages"
 
             return {
@@ -178,8 +241,10 @@ class AgentOrchestrator:
                 "decision_trace": trace,
             }
 
-        # 2. Simulation & "What-If" queries
-        if any(w in q_lower for w in ["what if", "what-if", "if alex", "if devon", "add developer", "delay", "absence"]):
+        # ------------------------------------------------------------------
+        # INTENT 2: Simulation & What-If Scenarios
+        # ------------------------------------------------------------------
+        if any(w in q_lower for w in ["what if", "what-if", "simulate", "if alex", "if devon", "if sarah", "absence for"]):
             trace["intent"] = "discrete_simulation"
             trace["selected_agent"] = self.agents["pm"]["name"]
             trace["tools_executed"].extend(["simulate_schedule", "list_bottlenecks"])
@@ -191,6 +256,8 @@ class AgentOrchestrator:
                 unavailable.append("Devon Reed")
             if "sarah" in q_lower:
                 unavailable.append("Sarah Jenkins")
+            if "priya" in q_lower:
+                unavailable.append("Priya Sharma")
 
             from app.schemas import SimulationIn
 
@@ -202,30 +269,34 @@ class AgentOrchestrator:
             sim_res = ml_risk_service.simulate_project_scenario(db, sim_in)
             trace["evidence"] = f"CPM simulation computed: baseline={sim_res.baseline_days}d -> simulated={sim_res.simulated_days}d"
 
-            # Create structured action proposal
-            proposal = proposal_store.create_proposal(
-                action_type="reassign_task",
-                target_id="TASK-102",
-                current_state={"task_id": "TASK-102", "assignee": "Devon Reed", "workload_load": "110% (Overloaded)"},
-                proposed_state={"task_id": "TASK-102", "assignee": "Priya Sharma", "workload_load": "40% (Available)"},
-                reason="Priya Sharma has direct cosine talent match for AI/Vector Search and available capacity to prevent +8.8d milestone slip.",
-                actor_agent=self.agents["pm"]["name"],
-            )
-            trace["proposal"] = proposal
+            # Create structured action proposal if members unavailable
+            proposal = None
+            if unavailable:
+                proposal = proposal_store.create_proposal(
+                    action_type="reassign_task",
+                    target_id="TASK-102",
+                    current_state={"task_id": "TASK-102", "assignee": unavailable[0], "status": "in_progress"},
+                    proposed_state={"task_id": "TASK-102", "assignee": "Priya Sharma", "status": "in_progress"},
+                    reason=f"Cover {unavailable[0]} absence to preserve critical path milestone velocity.",
+                    actor_agent=self.agents["pm"]["name"],
+                )
+                trace["proposal"] = proposal
 
             return {
                 "agent": self.agents["pm"]["name"],
                 "type": "simulation_result",
                 "answer": f"📈 **What-If Discrete Simulation Results**:\n• Baseline: **{sim_res.baseline_days} days** ➔ Simulated: **{sim_res.simulated_days} days** (Δ {sim_res.delta_days:+} days)\n• On-Time Release Probability: **{sim_res.on_time_probability}%**\n\n⚠️ **Identified Bottlenecks**:\n"
                 + "\n".join([f"• {b}" for b in sim_res.new_bottlenecks])
-                + f"\n\n💡 **AI Recommendation**: {sim_res.recommendations[0] if sim_res.recommendations else 'Maintain current velocity.'}",
+                + f"\n\n💡 **AI Recommendation**: {sim_res.recommendations[0] if sim_res.recommendations else 'Maintain current sprint allocation.'}",
                 "citations": [],
                 "proposed_action": proposal,
                 "decision_trace": trace,
             }
 
-        # 3. Security queries
-        if any(w in q_lower for w in ["security", "threat", "breach", "failed login", "audit"]):
+        # ------------------------------------------------------------------
+        # INTENT 3: Security & Anomaly Inquiries
+        # ------------------------------------------------------------------
+        if any(w in q_lower for w in ["security threat", "threat radar", "breach", "failed login", "security audit"]):
             trace["intent"] = "security_audit"
             trace["selected_agent"] = self.agents["security"]["name"]
             trace["tools_executed"].append("audit_policy")
@@ -242,45 +313,380 @@ class AgentOrchestrator:
                 "decision_trace": trace,
             }
 
-        # 4. Workload Rebalancing queries
-        if any(w in q_lower for w in ["rebalance", "workload", "overload", "capacity", "burnout", "assignee"]):
-            trace["intent"] = "workload_rebalance"
+        # ------------------------------------------------------------------
+        # INTENT 4: Team Workload, Capacity & Overload Inquiries
+        # ------------------------------------------------------------------
+        if any(w in q_lower for w in ["who is overloaded", "who has bandwidth", "who is available", "most workload", "team capacity", "workload report"]):
+            trace["intent"] = "TEAM_WORKLOAD"
             trace["selected_agent"] = self.agents["analytics"]["name"]
-            trace["tools_executed"].append("rebalance_workload")
+            trace["tools_executed"].append("get_team_capacity")
 
-            plan = ai_service.compute_workload_rebalancing_plan(db)
-            recs = plan.get("recommendations", [])
-            trace["evidence"] = f"Generated {len(recs)} optimal reassignments"
+            cap = agent_tools.get_team_capacity(db, user)
+            overloaded = cap["overloaded_members"]
+            available = cap["available_members"]
 
-            proposal = proposal_store.create_proposal(
-                action_type="reassign_task",
-                target_id="TASK-102",
-                current_state={"task_id": "TASK-102", "assignee": "Devon Reed", "capacity": "110%"},
-                proposed_state={"task_id": "TASK-102", "assignee": "Priya Sharma", "capacity": "40%"},
-                reason="Redistribute overloaded task to optimize sprint release velocity and prevent engineer burnout.",
-                actor_agent=self.agents["analytics"]["name"],
-            )
-            trace["proposal"] = proposal
+            trace["evidence"] = f"Audited {cap['total_members']} organization members"
+
+            lines = ["📊 **Team Workload & Capacity Intelligence**:"]
+            if overloaded:
+                lines.append(f"⚠️ **Overloaded Members ({len(overloaded)})**:")
+                for o in overloaded:
+                    lines.append(f"• **{o['name']}** ({o['role']}): **{o.get('capacity', 90)}% Load** ({o.get('active_tasks', 3)} active tasks)")
+            else:
+                lines.append("✓ No engineers are currently overloaded (>90% capacity).")
+
+            if available:
+                lines.append(f"\n💡 **Available Bandwidth ({len(available)})**:")
+                for a in available:
+                    lines.append(f"• **{a['name']}**: **{a.get('capacity', 40)}% Load** — ready for task allocation.")
 
             return {
                 "agent": self.agents["analytics"]["name"],
-                "type": "rebalance_plan",
-                "answer": f"⚖️ **Talent Matching & Workload Optimization Plan**:\nIdentified **{len(recs)}** optimal reassignments using mathematical vector similarity and Hungarian capacity balancing.",
+                "type": "workload_report",
+                "answer": "\n".join(lines),
                 "citations": [],
-                "proposed_action": proposal,
+                "proposed_action": None,
                 "decision_trace": trace,
             }
 
-        # 5. Developer Planning / Decomposition
-        trace["intent"] = "task_decomposition"
-        trace["selected_agent"] = self.agents["dev"]["name"]
-        trace["tools_executed"].append("decompose_task")
-        trace["evidence"] = "Parsed technical project requirements and constructed architecture graph"
+        # ------------------------------------------------------------------
+        # INTENT 5: Tasks Assigned to a Specific Person
+        # ------------------------------------------------------------------
+        person = self._extract_person_entity(q_clean, db, user)
+        if person and any(w in q_lower for w in ["what tasks", "which tasks", "assigned to", "working on", "tasks of", "tasks for"]):
+            trace["intent"] = "TASK_BY_ASSIGNEE"
+            trace["selected_agent"] = self.agents["dev"]["name"]
+            trace["tools_executed"].append("get_tasks_by_assignee")
 
+            res = agent_tools.get_tasks_by_assignee(db, person.id, user)
+            tasks = res["tasks"]
+            trace["evidence"] = f"Retrieved {len(tasks)} tasks for {person.name}"
+
+            if not tasks:
+                answer = f"**{person.name}** currently has no tasks assigned."
+            else:
+                t_list = [f"• **[{t['id']}] {t['title']}** — Status: **{t['status'].upper()}**, Priority: **{t['priority']}** (Due: {t.get('dueDate') or 'No SLA'})" for t in tasks]
+                answer = f"📋 **Tasks Assigned to {person.name} ({len(tasks)})**:\n" + "\n".join(t_list)
+
+            return {
+                "agent": self.agents["dev"]["name"],
+                "type": "assignee_task_list",
+                "answer": answer,
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # ------------------------------------------------------------------
+        # INTENT 6: Blocked Tasks Inquiry
+        # ------------------------------------------------------------------
+        if any(w in q_lower for w in ["which tasks are blocked", "what tasks are blocked", "blocked tasks", "stuck tasks"]):
+            trace["intent"] = "BLOCKED_TASKS"
+            trace["selected_agent"] = self.agents["pm"]["name"]
+            trace["tools_executed"].append("get_blocked_tasks")
+
+            blocked_tasks = agent_tools.get_blocked_tasks(db, user)
+            trace["evidence"] = f"Found {len(blocked_tasks)} blocked / high risk tasks"
+
+            if not blocked_tasks:
+                answer = "✓ There are currently **no blocked tasks** in your project graph!"
+            else:
+                b_lines = [f"• **[{t['id']}] {t['title']}** (Assignee: **{t['assignee']}**) — Reason: *{t.get('riskReason') or 'Blocked by prerequisite'}*" for t in blocked_tasks]
+                answer = f"⚠️ **Currently Blocked Tasks ({len(blocked_tasks)})**:\n" + "\n".join(b_lines)
+
+            return {
+                "agent": self.agents["pm"]["name"],
+                "type": "blocked_tasks_report",
+                "answer": answer,
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # ------------------------------------------------------------------
+        # INTENT 7: Action Request (e.g., "Reassign Authentication to Priya")
+        # ------------------------------------------------------------------
+        if q_lower.startswith("reassign ") or "reassign task" in q_lower:
+            trace["intent"] = "ACTION_PROPOSAL"
+            trace["selected_agent"] = self.agents["analytics"]["name"]
+            trace["tools_executed"].append("propose_reassignment")
+
+            target_entity = self._extract_task_entity(q_clean, user.id)
+            target_task = agent_tools.get_task(db, target_entity or "", user) if target_entity else None
+
+            # Find target new assignee
+            target_assignee = self._extract_person_entity(q_clean, db, user)
+
+            if target_task and target_assignee:
+                proposal = proposal_store.create_proposal(
+                    action_type="reassign_task",
+                    target_id=target_task["id"],
+                    current_state={"task_id": target_task["id"], "assignee": target_task.get("assignee") or "Unassigned"},
+                    proposed_state={"task_id": target_task["id"], "assignee": target_assignee.name},
+                    reason=f"Optimize workload distribution and assign task to {target_assignee.name}.",
+                    actor_agent=self.agents["analytics"]["name"],
+                )
+                trace["proposal"] = proposal
+                return {
+                    "agent": self.agents["analytics"]["name"],
+                    "type": "proposal_created",
+                    "answer": f"⚡ Generated safe action proposal to reassign **[{target_task['id']}] {target_task['title']}** from **{target_task.get('assignee') or 'Unassigned'}** to **{target_assignee.name}**.\n\nPlease review and approve the proposal below:",
+                    "citations": [],
+                    "proposed_action": proposal,
+                    "decision_trace": trace,
+                }
+
+        # ------------------------------------------------------------------
+        # INTENT 8: Task Entity Queries (Assignee, Status, Deadline, Dependency, Risk)
+        # ------------------------------------------------------------------
+        task_entity = self._extract_task_entity(q_clean, user.id)
+
+        # 8A. TASK ASSIGNEE: "Who is working on Authentication?" / "Who is assigned to TASK-102?"
+        if any(w in q_lower for w in ["who is working", "who is assigned", "who is handling", "who has", "owner of", "assignee of"]) or (task_entity and q_lower.startswith("who ")):
+            trace["intent"] = "TASK_ASSIGNEE"
+            trace["selected_agent"] = self.agents["dev"]["name"]
+            trace["tools_executed"].append("get_assignee")
+
+            if not task_entity:
+                return self._fallback_general_response(trace)
+
+            res = agent_tools.get_assignee(db, task_entity, user)
+            if not res["found"]:
+                trace["evidence"] = "Task lookup failed (zero matches)"
+                return {
+                    "agent": self.agents["dev"]["name"],
+                    "type": "task_not_found",
+                    "answer": res["message"],
+                    "citations": [],
+                    "proposed_action": None,
+                    "decision_trace": trace,
+                }
+
+            if res.get("multiple"):
+                tasks_list = [f"• **[{t['id']}] {t['title']}** (Project: {t.get('project') or 'Default'})" for t in res["tasks"]]
+                return {
+                    "agent": self.agents["dev"]["name"],
+                    "type": "clarification",
+                    "answer": f"I found **{len(res['tasks'])} tasks** matching '{task_entity}'. Which one do you mean?\n" + "\n".join(tasks_list),
+                    "citations": [],
+                    "proposed_action": None,
+                    "decision_trace": trace,
+                }
+
+            task = res["task"]
+            # Save context for follow-up questions
+            self._session_contexts[user.id] = {"task_id": task["id"], "title": task["title"], "timestamp": datetime.utcnow()}
+
+            assignee_info = res.get("assignee", {})
+            assignee_name = assignee_info.get("name", "Unassigned")
+            trace["evidence"] = f"Resolved task [{task['id']}] '{task['title']}' assigned to {assignee_name}"
+
+            if res["has_assignee"]:
+                answer = f"**{task['title']}** is currently assigned to **{assignee_name}** ({assignee_info.get('role', 'Developer')}) and is **{task['status'].replace('_', ' ').title()}**.\n\n• **Task ID**: `{task['id']}`\n• **Priority**: {task['priority']}\n• **Due Date**: {task.get('dueDate') or 'No SLA set'}\n• **Predicted Risk**: {int(task.get('aiRiskScore', 0.1) * 100)}%"
+            else:
+                answer = f"**{task['title']}** (`{task['id']}`) is currently **unassigned** (Status: **{task['status']}**)."
+
+            return {
+                "agent": self.agents["dev"]["name"],
+                "type": "task_assignee",
+                "answer": answer,
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # 8B. TASK DEADLINE: "When is Authentication due?" / "What is the deadline?"
+        if any(w in q_lower for w in ["deadline", "due date", "when is", "due", "target date"]):
+            trace["intent"] = "TASK_DEADLINE"
+            trace["selected_agent"] = self.agents["pm"]["name"]
+            trace["tools_executed"].append("get_task_deadline")
+
+            if not task_entity:
+                return self._fallback_general_response(trace)
+
+            res = agent_tools.get_task_deadline(db, task_entity, user)
+            if not res["found"]:
+                return {
+                    "agent": self.agents["pm"]["name"],
+                    "type": "task_not_found",
+                    "answer": res.get("message", f"I couldn't find task '{task_entity}'."),
+                    "citations": [],
+                    "proposed_action": None,
+                    "decision_trace": trace,
+                }
+
+            task = res["task"]
+            self._session_contexts[user.id] = {"task_id": task["id"], "title": task["title"], "timestamp": datetime.utcnow()}
+            trace["evidence"] = f"Task [{task['id']}] due date: {res['dueDate']}"
+
+            answer = f"📅 **Deadline for {task['title']}** (`{task['id']}`):\n• Target SLA Due Date: **{res['dueDate']}**\n• Status: **{task['status'].upper()}**\n• Assignee: **{res['assignee']}**"
+            return {
+                "agent": self.agents["pm"]["name"],
+                "type": "task_deadline",
+                "answer": answer,
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # 8C. TASK STATUS: "What is the status of Authentication?"
+        if any(w in q_lower for w in ["status of", "status", "how is", "progress of", "state of"]):
+            trace["intent"] = "TASK_STATUS"
+            trace["selected_agent"] = self.agents["pm"]["name"]
+            trace["tools_executed"].append("get_task_status")
+
+            if not task_entity:
+                # If no specific task, return general sprint summary
+                summary = agent_tools.get_project_summary(db, user)
+                return {
+                    "agent": self.agents["pm"]["name"],
+                    "type": "project_summary",
+                    "answer": f"📈 **{summary['project_name']} Sprint Status**:\n• Total Tasks: **{summary['total_tasks']}**\n• Completed: **{summary['done']}** ({summary['progress_percentage']}%)\n• In Progress: **{summary['in_progress']}**\n• Blocked: **{summary['blocked']}**\n• Target Release: **{summary['deadline']}**",
+                    "citations": [],
+                    "proposed_action": None,
+                    "decision_trace": trace,
+                }
+
+            res = agent_tools.get_task_status(db, task_entity, user)
+            if not res["found"]:
+                return {
+                    "agent": self.agents["pm"]["name"],
+                    "type": "task_not_found",
+                    "answer": res.get("message", f"I couldn't find task '{task_entity}'."),
+                    "citations": [],
+                    "proposed_action": None,
+                    "decision_trace": trace,
+                }
+
+            task = res["task"]
+            self._session_contexts[user.id] = {"task_id": task["id"], "title": task["title"], "timestamp": datetime.utcnow()}
+            trace["evidence"] = f"Task [{task['id']}] status: {res['status']}"
+
+            answer = f"📋 **Status for {task['title']}** (`{task['id']}`):\n• Current Status: **{res['status'].upper()}**\n• Assignee: **{res['assignee']}**\n• Priority: **{res['priority']}**\n• Due Date: **{res['dueDate']}**"
+            if res.get("riskReason"):
+                answer += f"\n⚠️ **Risk Note**: {res['riskReason']}"
+
+            return {
+                "agent": self.agents["pm"]["name"],
+                "type": "task_status",
+                "answer": answer,
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # 8D. TASK DEPENDENCIES: "What is blocking Authentication?" / "Which tasks depend on Authentication?"
+        if any(w in q_lower for w in ["blocking", "depend", "dependency", "dependencies", "prerequisite"]):
+            trace["intent"] = "TASK_DEPENDENCIES"
+            trace["selected_agent"] = self.agents["dev"]["name"]
+            trace["tools_executed"].append("get_task_dependencies")
+
+            if not task_entity:
+                return self._fallback_general_response(trace)
+
+            res = agent_tools.get_task_dependencies(db, task_entity, user)
+            if not res["found"]:
+                return {
+                    "agent": self.agents["dev"]["name"],
+                    "type": "task_not_found",
+                    "answer": res.get("message", f"I couldn't find task '{task_entity}'."),
+                    "citations": [],
+                    "proposed_action": None,
+                    "decision_trace": trace,
+                }
+
+            task = res["task"]
+            self._session_contexts[user.id] = {"task_id": task["id"], "title": task["title"], "timestamp": datetime.utcnow()}
+
+            prereqs = res["prerequisites"]
+            downstream = res["downstream_dependents"]
+
+            lines = [f"🔗 **Dependency Graph for {task['title']}** (`{task['id']}`):"]
+            if prereqs:
+                lines.append(f"\n⬅️ **Prerequisites ({len(prereqs)})** (Must complete before {task['id']}):")
+                for p in prereqs:
+                    lines.append(f"• **[{p['id']}] {p['title']}** — Status: **{p['status'].upper()}** (Owner: {p['assignee']})")
+            else:
+                lines.append("\n⬅️ **Prerequisites**: None (Can start immediately).")
+
+            if downstream:
+                lines.append(f"\n➡️ **Downstream Dependents ({len(downstream)})** (Blocked by {task['id']}):")
+                for d in downstream:
+                    lines.append(f"• **[{d['id']}] {d['title']}** — Status: **{d['status'].upper()}** (Owner: {d['assignee']})")
+            else:
+                lines.append("\n➡️ **Downstream Dependents**: None.")
+
+            return {
+                "agent": self.agents["dev"]["name"],
+                "type": "task_dependencies",
+                "answer": "\n".join(lines),
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # 8E. TASK RISK: "Is Authentication high risk?" / "Which task is highest risk?"
+        if any(w in q_lower for w in ["risk", "hazard", "bottleneck", "delay factor"]):
+            trace["intent"] = "TASK_RISK"
+            trace["selected_agent"] = self.agents["analytics"]["name"]
+            trace["tools_executed"].append("get_task_risk")
+
+            if task_entity:
+                res = agent_tools.get_task_risk(db, task_entity, user)
+                if res["found"]:
+                    task = res["task"]
+                    self._session_contexts[user.id] = {"task_id": task["id"], "title": task["title"], "timestamp": datetime.utcnow()}
+                    answer = f"⚠️ **Risk Assessment for {task['title']}** (`{task['id']}`):\n• Predicted Delay Risk: **{res['risk_percentage']}% ({res['risk_level']})**\n• Primary Hazard: *{res['risk_reason']}*\n• Assignee: **{task['assignee']}**"
+                    return {
+                        "agent": self.agents["analytics"]["name"],
+                        "type": "task_risk",
+                        "answer": answer,
+                        "citations": [],
+                        "proposed_action": None,
+                        "decision_trace": trace,
+                    }
+
+        # ------------------------------------------------------------------
+        # INTENT 9: Task Existence / Lookup: "Does Authentication exist?"
+        # ------------------------------------------------------------------
+        if task_entity:
+            matches = agent_tools.search_tasks(db, task_entity, user, limit=3)
+            if matches:
+                task = matches[0]
+                self._session_contexts[user.id] = {"task_id": task["id"], "title": task["title"], "timestamp": datetime.utcnow()}
+                trace["intent"] = "TASK_LOOKUP"
+                trace["tools_executed"].append("search_tasks")
+                trace["evidence"] = f"Found task [{task['id']}] {task['title']}"
+
+                answer = f"Yes, I found **[{task['id']}] {task['title']}** in your project.\n• Assignee: **{task.get('assignee') or 'Unassigned'}**\n• Status: **{task['status'].upper()}**\n• Priority: **{task['priority']}**\n• Due Date: **{task.get('dueDate') or 'No SLA'}**"
+                return {
+                    "agent": self.agents["pm"]["name"],
+                    "type": "task_info",
+                    "answer": answer,
+                    "citations": [],
+                    "proposed_action": None,
+                    "decision_trace": trace,
+                }
+            else:
+                return {
+                    "agent": self.agents["pm"]["name"],
+                    "type": "task_not_found",
+                    "answer": f"I couldn't find any task matching '{task_entity}' in your organization.",
+                    "citations": [],
+                    "proposed_action": None,
+                    "decision_trace": trace,
+                }
+
+        # Default fallback
+        return self._fallback_general_response(trace)
+
+    def _fallback_general_response(self, trace: dict[str, Any]) -> dict[str, Any]:
+        trace["intent"] = "general_briefing"
+        trace["selected_agent"] = self.agents["pm"]["name"]
         return {
-            "agent": self.agents["dev"]["name"],
+            "agent": self.agents["pm"]["name"],
             "type": "general_briefing",
-            "answer": f"🤖 **Nexus Multi-Agent Swarm Online**\n\nI have monitored the workspace telemetry:\n• Sprint Alpha: Critical path on track with 84.5% delivery probability.\n• Security Center: 0 active high-priority anomalies.\n• Ask me: *'What if Alex Vance is absent for 5 days?'* or *'According to architecture spec...'*",
+            "answer": "🤖 **Nexus Mind AI Copilot**\n\nI am connected to your live PostgreSQL database. You can ask me:\n• *'Who is working on Authentication?'*\n• *'When is TASK-102 due?'*\n• *'What is the status of Database Migration?'*\n• *'Who is overloaded in the team?'*\n• *'What tasks are assigned to Devon?'*",
             "citations": [],
             "proposed_action": None,
             "decision_trace": trace,

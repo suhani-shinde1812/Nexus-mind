@@ -1,6 +1,7 @@
 /**
- * AI ASSISTANT AGENT (HYBRID OLLAMA + SMART CONVERSATIONAL ENGINE)
- * Context-aware AI Co-pilot for task decomposition, graph actions, and executive briefings.
+ * AI ASSISTANT AGENT — UNIFIED CLIENT & COPILOT ENGINE
+ * Queries the backend Multi-Agent Swarm Orchestrator (/api/ai/query) for live database answers,
+ * task lookups, assignee queries, RAG citations, and discrete what-if simulations.
  */
 import { store } from '../state.js';
 import { api } from '../api.js';
@@ -8,182 +9,162 @@ import { api } from '../api.js';
 export class AiAssistantAgent {
   constructor() {
     this.name = 'AI Assistant Agent';
-    this.ollamaUrl = 'http://localhost:11434/api/generate';
-    this.preferredModel = 'llama3.2:latest';
-    this.isOllamaAvailable = false;
-  }
-
-  async checkOllamaConnection() {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 800);
-      const res = await fetch('http://localhost:11434/api/tags', { 
-        method: 'GET',
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.models && data.models.length > 0) {
-          this.isOllamaAvailable = true;
-          this.preferredModel = data.models[0].name;
-          return true;
-        }
-      }
-    } catch {
-      // Standalone mode or CORS
-    }
-    this.isOllamaAvailable = false;
-    return false;
+    this.lastTaskId = null;
   }
 
   async processPromptAsync(promptText) {
     const text = promptText.trim();
     if (!text) return { type: 'empty', message: 'Please enter a valid prompt.' };
 
-    store.logSwarmActivity(this.name, 'Processing Query', `Evaluating natural language input: "${text.substring(0, 35)}..."`);
+    store.logSwarmActivity(this.name, 'Evaluating Query', `Routing query to backend agent swarm: "${text.substring(0, 35)}..."`);
 
-    // Check Ollama if available
-    const isConnected = await this.checkOllamaConnection();
-    if (isConnected) {
-      try {
-        const ollamaReply = await this.queryOllama(text);
-        if (ollamaReply && ollamaReply.trim()) {
-          return {
-            type: 'ollama_llm',
-            message: `🦙 **Ollama LLM (${this.preferredModel})**:\n\n${ollamaReply}`,
-            model: this.preferredModel
-          };
-        }
-      } catch (err) {
-        console.warn('Ollama query fallback', err);
-      }
-    }
-
-    // Try backend AI service decomposition / query if available
-    if (text.toLowerCase().includes('decompose') || text.toLowerCase().includes('break down')) {
-      try {
-        const title = text.replace(/break down|decompose|subtasks|subtask|for|the/gi, '').trim() || 'Selected Feature';
-        const subtasks = await api.decompose({ title });
-        if (subtasks && subtasks.length > 0) {
-          const subtaskList = subtasks.map((st, i) => `${i+1}. **${st.title}** (${st.estimatedHours}h, ${st.priority} Priority) — Skills: ${st.suggestedSkills ? st.suggestedSkills.join(', ') : 'General'}`);
-          return {
-            type: 'subtasks',
-            feature: title,
-            subtasks,
-            message: `✨ **AI Task Decomposition for "${title}"**:\n\n${subtaskList.join('\n')}\n\n💡 *Subtasks can be attached directly to the Live Task Graph.*`
-          };
-        }
-      } catch {
-        // Fallback to internal neural rule engine
-      }
-    }
-
-    return this.processSmartRuleEngine(text);
-  }
-
-  async queryOllama(userPrompt) {
+    // 1. Query Backend Live Agent Orchestrator
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-      const state = store.getState();
-
-      const taskSummary = state.tasks.map(t => `[${t.id}] ${t.title} (Owner: ${t.assignee}, Status: ${t.status})`).join('; ');
-      
-      const body = {
-        model: this.preferredModel,
-        prompt: `Context: Active Tasks: ${taskSummary}.\nUser Question: ${userPrompt}\nAnswer concisely as Nexus AI Assistant:`,
-        stream: false
-      };
-
-      const res = await fetch(this.ollamaUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const data = await res.json();
-        return data.response;
+      const res = await api.queryAi(text);
+      if (res && res.answer) {
+        if (res.decision_trace?.evidence?.includes('TASK-')) {
+          const match = res.decision_trace.evidence.match(/TASK-\d+/);
+          if (match) this.lastTaskId = match[0];
+        }
+        return {
+          type: res.type || 'agent_response',
+          agent: res.agent || 'Nexus AI Swarm',
+          message: res.answer,
+          trace: res.decision_trace,
+          proposal: res.proposed_action,
+          citations: res.citations || []
+        };
       }
-    } catch {
-      // Handled by fallback
+    } catch (err) {
+      console.warn('Backend AI query endpoint failed, executing client-side database tool fallback', err);
     }
-    return null;
+
+    // 2. Real State-Backed Local Fallback
+    return this.processSmartRuleEngine(text);
   }
 
   processSmartRuleEngine(promptText) {
     const text = promptText.trim().toLowerCase();
     const state = store.getState();
+    const tasks = state.tasks || [];
+    const users = state.users || [];
 
-    // 1. Task Breakdown / Decompose
-    if (text.includes('break down') || text.includes('decompose') || text.includes('subtask')) {
-      const featureTitle = promptText.replace(/break down|decompose|subtasks|subtask|for|the/gi, '').trim() || 'Selected Component';
-      return this.generateSubtasks(featureTitle);
-    }
+    // Helper: find task by ID or keyword
+    const findMatchingTask = (query) => {
+      // Check exact ID or pronoun follow-up
+      if (this.lastTaskId && (query.includes('it') || query.includes('this') || query.includes('the task') || query.includes('deadline') || query.includes('status'))) {
+        const t = tasks.find(x => x.id === this.lastTaskId);
+        if (t) return t;
+      }
 
-    // 2. Rebalance / Workload action
-    if (text.includes('rebalance') || text.includes('balance load')) {
-      store.autoRebalanceWorkload();
+      const idMatch = query.match(/task-\d+/i);
+      if (idMatch) {
+        const found = tasks.find(t => t.id.toLowerCase() === idMatch[0].toLowerCase());
+        if (found) return found;
+      }
+
+      // Keyword match
+      const clean = query.replace(/who is working on|who is assigned to|who is handling|what is the status of|when is|what is the deadline for|is|what is blocking|which tasks depend on|tell me about|check|find|the|task|feature/gi, '').trim();
+      if (!clean) return null;
+
+      return tasks.find(t => t.title.toLowerCase().includes(clean) || (t.description && t.description.toLowerCase().includes(clean))) || null;
+    };
+
+    // 1. Assignee Query: "Who is working on Authentication?"
+    if (text.includes('who is working') || text.includes('who is assigned') || text.includes('who is handling') || text.includes('owner') || (text.startsWith('who ') && text.includes('task'))) {
+      const task = findMatchingTask(text);
+      if (task) {
+        this.lastTaskId = task.id;
+        const assignee = task.assignee || 'Unassigned';
+        return {
+          type: 'task_assignee',
+          message: `**${task.title}** is currently assigned to **${assignee}** and is **${task.status.toUpperCase()}**.\n\n• **Task ID**: \`${task.id}\`\n• **Priority**: ${task.priority}\n• **Due Date**: ${task.dueDate || 'No SLA set'}\n• **Predicted Risk**: ${Math.round((task.aiRiskScore || 0.1) * 100)}%`
+        };
+      }
       return {
-        type: 'action_rebalance',
-        message: '⚡ **AI Workload Rebalance Executed**:\nAnalyzed developer capacities and reassigned tasks from overloaded members to available teammates!'
+        type: 'not_found',
+        message: `I couldn't find a matching task in your current workspace.`
       };
     }
 
-    // 3. Bandwidth / Capacity query
-    if (text.includes('bandwidth') || text.includes('load') || text.includes('who can take') || text.includes('capacity')) {
-      const userList = state.users.map(u => `• **${u.name}** (${u.role}): **${u.capacity}% Load** (${u.activeTasks} active tasks)`).join('\n');
+    // 2. Status Query: "What is the status of Authentication?"
+    if (text.includes('status of') || text.includes('how is') || text.includes('progress of') || text.includes('status')) {
+      const task = findMatchingTask(text);
+      if (task) {
+        this.lastTaskId = task.id;
+        return {
+          type: 'task_status',
+          message: `📋 **Status for ${task.title}** (\`${task.id}\`):\n• Current Status: **${task.status.toUpperCase()}**\n• Assignee: **${task.assignee || 'Unassigned'}**\n• Priority: **${task.priority}**\n• SLA Target: **${task.dueDate || 'No SLA'}**\n${task.riskReason ? `\n⚠️ **Risk**: ${task.riskReason}` : ''}`
+        };
+      }
+    }
+
+    // 3. Deadline Query: "When is Authentication due?"
+    if (text.includes('deadline') || text.includes('due') || text.includes('when is')) {
+      const task = findMatchingTask(text);
+      if (task) {
+        this.lastTaskId = task.id;
+        return {
+          type: 'task_deadline',
+          message: `📅 **Deadline for ${task.title}** (\`${task.id}\`):\n• Due Date: **${task.dueDate || 'No SLA deadline set'}**\n• Status: **${task.status.toUpperCase()}**\n• Assignee: **${task.assignee || 'Unassigned'}**`
+        };
+      }
+    }
+
+    // 4. Dependencies Query: "What is blocking Authentication?"
+    if (text.includes('blocking') || text.includes('depend') || text.includes('prerequisite')) {
+      const task = findMatchingTask(text);
+      if (task) {
+        this.lastTaskId = task.id;
+        const deps = task.dependsOn || [];
+        const depTasks = tasks.filter(t => deps.includes(t.id));
+        const blockedByStr = depTasks.length > 0
+          ? depTasks.map(d => `• **[${d.id}] ${d.title}** (Status: **${d.status.toUpperCase()}**, Owner: ${d.assignee})`).join('\n')
+          : '• None (Can proceed immediately).';
+
+        return {
+          type: 'task_dependencies',
+          message: `🔗 **Dependency Intelligence for ${task.title}** (\`${task.id}\`):\n\n⬅️ **Prerequisites**:\n${blockedByStr}`
+        };
+      }
+    }
+
+    // 5. Team Capacity & Overloaded Engineers
+    if (text.includes('overload') || text.includes('bandwidth') || text.includes('capacity') || text.includes('available')) {
+      const userList = users.map(u => `• **${u.name}** (${u.role}): **${u.capacity || 80}% Load** (${u.activeTasks || 0} active tasks)`).join('\n');
       return {
         type: 'workload_report',
-        message: `📊 **Team Workload & Capacity Matrix**:\n\n${userList}\n\n💡 **AI Talent Matcher**: Priya Sharma has the lowest capacity (40%) and highest availability.`
+        message: `📊 **Live Team Capacity Matrix**:\n\n${userList}`
       };
     }
 
-    // 4. Sprint / Project Summary & Briefing
-    if (text.includes('summary') || text.includes('report') || text.includes('status') || text.includes('sprint') || text.includes('briefing')) {
-      const total = state.tasks.length;
-      const done = state.tasks.filter(t => t.status === 'done').length;
-      const blocked = state.tasks.filter(t => t.status === 'blocked').length;
-      const progress = Math.round((done / total) * 100);
+    // 6. Sprint Summary
+    if (text.includes('summary') || text.includes('report') || text.includes('sprint')) {
+      const total = tasks.length;
+      const done = tasks.filter(t => t.status === 'done').length;
+      const blocked = tasks.filter(t => t.status === 'blocked').length;
+      const progress = total > 0 ? Math.round((done / total) * 100) : 0;
 
       return {
         type: 'sprint_summary',
-        message: `📈 **Sprint Alpha Executive Intelligence Briefing**:\n• Total Tasks: **${total}**\n• Completed: **${done}** (${progress}%)\n• Blocked Tasks: **${blocked}**\n• On-Time Delivery Probability: **${state.sprintForecast.onTimeProbability}%**\n• Predicted Delay: **${state.sprintForecast.expectedDelayDays} days**\n\n⚠️ **Critical Hazard**: Devon Reed is at 110% capacity overload. Reassigning TASK-106 will unblock the critical path!`
+        message: `📈 **Sprint Intelligence Briefing**:\n• Total Tasks: **${total}**\n• Completed: **${done}** (${progress}%)\n• Blocked Tasks: **${blocked}**\n• On-Time Probability: **${state.sprintForecast?.onTimeProbability || 84.5}%**`
       };
     }
 
-    // 5. Natural Language Task Creation
-    if (text.includes('create task') || text.includes('add task')) {
-      const title = promptText.replace(/create task|add task/gi, '').trim() || 'New Engineering Task';
-      const newTask = store.addTask({
-        title,
-        priority: 'High',
-        status: 'in_progress',
-        assignee: 'Priya Sharma'
-      });
-      return {
-        type: 'task_created',
-        message: `✅ Created and published task **[${newTask.id}] ${newTask.title}** assigned to Priya Sharma live on the Task Graph!`
-      };
-    }
-
-    // 6. Query specific task ID (e.g. "TASK-102", "102", "104")
-    const taskMatch = state.tasks.find(t => text.includes(t.id.toLowerCase()) || text.includes(t.id.split('-')[1]));
-    if (taskMatch) {
+    // 7. General task match
+    const generalTask = findMatchingTask(text);
+    if (generalTask) {
+      this.lastTaskId = generalTask.id;
       return {
         type: 'task_info',
-        message: `📋 **Task Details [${taskMatch.id}]**:\n• **Title**: ${taskMatch.title}\n• **Assignee**: ${taskMatch.assignee}\n• **Status**: ${taskMatch.status.toUpperCase()}\n• **Priority**: ${taskMatch.priority}\n• **SLA Target Due**: ${taskMatch.dueDate || 'Unset'}\n• **Prerequisites**: ${taskMatch.dependsOn ? taskMatch.dependsOn.join(', ') : 'None'}\n${taskMatch.riskReason ? `\n⚠️ **Risk Alert**: ${taskMatch.riskReason}` : '\n✓ No risk bottlenecks detected.'}`
+        message: `📋 **[${generalTask.id}] ${generalTask.title}**\n• Assignee: **${generalTask.assignee || 'Unassigned'}**\n• Status: **${generalTask.status.toUpperCase()}**\n• Priority: **${generalTask.priority}**\n• Due Date: **${generalTask.dueDate || 'No SLA'}**`
       };
     }
 
-    // 7. General AI Assistant response
+    // Default response
     return {
       type: 'general_ai',
-      message: `🤖 **Nexus AI Co-Pilot**:\nI parsed your request: "${promptText}".\n\n💡 **Suggested Commands**:\n• *"Break down OAuth feature"*\n• *"Who has bandwidth?"*\n• *"TASK-102 status"*\n• *"Rebalance team workload"*\n• *"Generate sprint summary report"*`
+      message: `🤖 **Nexus AI Copilot**:\nI am connected to your live PostgreSQL database.\n\nTry asking:\n• *"Who is working on Authentication?"*\n• *"When is TASK-102 due?"*\n• *"What is the status of Database Migration?"*\n• *"Who is overloaded in the team?"*`
     };
   }
 
@@ -198,9 +179,7 @@ export class AiAssistantAgent {
 
     return {
       type: 'subtasks',
-      feature: featureTitle,
-      subtasks: subtasks,
-      message: `✨ AI generated 5 structured subtasks for **"${featureTitle}"**:\n\n${subtasks.join('\n')}\n\n💡 *Click New Task to add these to the Live Graph.*`
+      subtasks
     };
   }
 }

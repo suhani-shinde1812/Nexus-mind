@@ -61,8 +61,29 @@ class NexusApp {
     this.updateUnreadCount();
     this.renderToasts();
     this.syncThemeUI();
+    window.nexusApp = this;
     console.log('🚀 Nexus Mind Autonomous Platform Online!');
   }
+
+  async approveProposal(propId) {
+    try {
+      await api.approveAiProposal(propId);
+      store.addToast('Proposal Approved', `Action proposal ${propId} executed and logged to audit trail.`, 'success');
+      await store.init();
+    } catch (err) {
+      store.addToast('Action Failed', `Could not approve proposal ${propId}: ${err.message}`, 'danger');
+    }
+  }
+
+  async rejectProposal(propId) {
+    try {
+      await api.rejectAiProposal(propId);
+      store.addToast('Proposal Dismissed', `Action proposal ${propId} dismissed.`, 'info');
+    } catch (err) {
+      store.addToast('Dismiss Failed', `Could not dismiss proposal: ${err.message}`, 'warning');
+    }
+  }
+
 
   // --- Multi-View Matrix Rendering ---
   bindViewSwitcher() {
@@ -318,21 +339,32 @@ class NexusApp {
     const chatInput = document.getElementById('chatInput');
     const btnSendChat = document.getElementById('btnSendChat');
 
+    const formatMarkdown = (text) => {
+      if (!text) return '';
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:4px; font-family:monospace;">$1</code>')
+        .replace(/\n/g, '<br/>');
+    };
+
     const handlePromptSubmit = async (userText) => {
       if (!userText.trim()) return;
-
       if (!chatMessages) return;
 
       const userDiv = document.createElement('div');
       userDiv.className = 'chat-message user';
-      userDiv.innerHTML = `<div class="msg-bubble">${userText}</div>`;
+      userDiv.innerHTML = `<div class="msg-bubble">${formatMarkdown(userText)}</div>`;
       chatMessages.appendChild(userDiv);
 
       const assistantDiv = document.createElement('div');
       assistantDiv.className = 'chat-message assistant';
       assistantDiv.innerHTML = `
-        <div class="msg-avatar">💡</div>
-        <div class="msg-bubble"><em>🤖 Nexus AI thinking...</em></div>
+        <div class="msg-avatar">🤖</div>
+        <div class="msg-bubble"><em>Evaluating workspace telemetry & database...</em></div>
       `;
       chatMessages.appendChild(assistantDiv);
       chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -342,19 +374,52 @@ class NexusApp {
       try {
         const response = await assistantAgent.processPromptAsync(userText);
         const bubble = assistantDiv.querySelector('.msg-bubble');
-        if (bubble && response && response.message) {
-          bubble.innerHTML = response.message.replace(/\n/g, '<br/>');
+        if (bubble && response) {
+          let html = `<div style="font-size:0.75rem; font-weight:bold; color:var(--cyan-primary); margin-bottom:4px;">⚡ ${response.agent || 'Nexus Agent Swarm'}</div>`;
+          html += `<div>${formatMarkdown(response.message)}</div>`;
+
+          // If Proposal Present
+          if (response.proposal) {
+            const p = response.proposal;
+            html += `
+              <div class="ai-proposal-card" style="margin-top:10px; padding:10px; border:1px solid var(--cyan-primary); border-radius:8px; background:rgba(0,242,254,0.05);">
+                <div style="font-weight:bold; font-size:0.8rem; color:#F59E0B;">🛡️ Human-in-the-Loop Proposal (${p.id})</div>
+                <div style="font-size:0.75rem; margin-top:4px; color:#CBD5E1;">${p.reason}</div>
+                <div style="margin-top:8px; display:flex; gap:8px;">
+                  <button class="btn btn-sm btn-primary" onclick="window.nexusApp?.approveProposal('${p.id}')">✓ Approve Action</button>
+                  <button class="btn btn-sm btn-secondary" onclick="window.nexusApp?.rejectProposal('${p.id}')">✕ Dismiss</button>
+                </div>
+              </div>
+            `;
+          }
+
+          // If Decision Trace Present
+          if (response.trace && response.trace.intent) {
+            html += `
+              <details style="margin-top:8px; font-size:0.72rem; color:#94A3B8; border-top:1px solid rgba(255,255,255,0.08); padding-top:4px;">
+                <summary style="cursor:pointer; color:var(--cyan-primary);">🔍 Agent Execution Trace (${response.trace.intent})</summary>
+                <div style="margin-top:4px; padding:4px 8px; background:rgba(0,0,0,0.3); border-radius:4px;">
+                  <div>• <strong>Intent</strong>: ${response.trace.intent}</div>
+                  <div>• <strong>Tools Executed</strong>: ${response.trace.tools_executed?.join(', ') || 'None'}</div>
+                  ${response.trace.evidence ? `<div>• <strong>Evidence</strong>: ${response.trace.evidence}</div>` : ''}
+                </div>
+              </details>
+            `;
+          }
+
+          bubble.innerHTML = html;
         }
       } catch (err) {
         const bubble = assistantDiv.querySelector('.msg-bubble');
         if (bubble) {
           const fallback = assistantAgent.processSmartRuleEngine(userText);
-          bubble.innerHTML = fallback.message.replace(/\n/g, '<br/>');
+          bubble.innerHTML = formatMarkdown(fallback.message);
         }
       }
 
       chatMessages.scrollTop = chatMessages.scrollHeight;
     };
+
 
     if (promptForm && promptInput) {
       promptForm.addEventListener('submit', (e) => {

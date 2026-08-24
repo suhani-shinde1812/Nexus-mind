@@ -197,6 +197,18 @@ class ApiClient {
   forecastSprint() {
     return this._request('/api/ai/forecast', { method: 'POST' });
   }
+  queryAi(query) {
+    return this._request('/api/ai/query', { method: 'POST', body: { query } });
+  }
+  getAiProposals() {
+    return this._request('/api/ai/proposals');
+  }
+  approveAiProposal(proposalId) {
+    return this._request(`/api/ai/proposals/${proposalId}/approve`, { method: 'POST' });
+  }
+  rejectAiProposal(proposalId) {
+    return this._request(`/api/ai/proposals/${proposalId}/reject`, { method: 'POST' });
+  }
   getRebalancePlan() {
     return this._request('/api/ai/rebalance', { method: 'POST' });
   }
