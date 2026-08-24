@@ -212,14 +212,26 @@ export class LiveTaskGraphEngine {
     
     const state = store.getState();
     const tasks = state.tasks;
+    if (!tasks || tasks.length === 0) return;
 
     let moved = false;
     for (let i = 0; i < tasks.length; i++) {
+      const n1 = tasks[i];
+      if (typeof n1.x !== 'number' || isNaN(n1.x)) n1.x = 180 + (i % 5) * 160;
+      if (typeof n1.y !== 'number' || isNaN(n1.y)) n1.y = 140 + Math.floor(i / 5) * 140;
+
       for (let j = i + 1; j < tasks.length; j++) {
-        const n1 = tasks[i];
         const n2 = tasks[j];
-        const dx = n2.x - n1.x;
-        const dy = n2.y - n1.y;
+        if (typeof n2.x !== 'number' || isNaN(n2.x)) n2.x = 180 + (j % 5) * 160;
+        if (typeof n2.y !== 'number' || isNaN(n2.y)) n2.y = 140 + Math.floor(j / 5) * 140;
+
+        let dx = n2.x - n1.x;
+        let dy = n2.y - n1.y;
+        if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
+          dx = (Math.random() - 0.5) * 30;
+          dy = (Math.random() - 0.5) * 30;
+        }
+
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
         const minDist = 160;
 
@@ -247,7 +259,7 @@ export class LiveTaskGraphEngine {
     if (!this.svg) return;
 
     const state = store.getState();
-    let tasks = state.tasks;
+    let tasks = state.tasks || [];
 
     if (this.viewFilter === 'risk') {
       tasks = tasks.filter(t => t.aiRiskScore >= 0.6 || t.status === 'blocked');
@@ -256,7 +268,12 @@ export class LiveTaskGraphEngine {
     }
 
     const taskMap = {};
-    state.tasks.forEach(t => taskMap[t.id] = t);
+    (state.tasks || []).forEach((t, idx) => {
+      if (typeof t.x !== 'number' || isNaN(t.x)) t.x = 180 + (idx % 5) * 160;
+      if (typeof t.y !== 'number' || isNaN(t.y)) t.y = 140 + Math.floor(idx / 5) * 140;
+      taskMap[t.id] = t;
+    });
+
 
     let svgHtml = `
       <defs>
@@ -370,8 +387,9 @@ export class LiveTaskGraphEngine {
           
           <!-- Node ID text -->
           <text x="${node.x}" y="${node.y + 4}" text-anchor="middle" fill="#FFFFFF" font-size="11" font-weight="800" font-family="'JetBrains Mono', monospace" pointer-events="none">
-            ${node.id.split('-')[1]}
+            ${node.id && node.id.includes('-') ? node.id.split('-')[1] : (node.id || 'N')}
           </text>
+
 
           <!-- Label Card -->
           <rect x="${node.x - 65}" y="${node.y + 30}" width="130" height="24" rx="6" fill="rgba(15, 23, 42, 0.95)" stroke="${statusColor}" stroke-width="1.2" pointer-events="all"/>

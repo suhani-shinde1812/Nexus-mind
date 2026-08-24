@@ -246,20 +246,45 @@ class StateStore {
     });
 
     wsClient.on('task_created', (task) => {
-      if (!this.state.tasks.find(t => t.id === task.id)) {
-        this.state.tasks.push(task);
+      const existingIdx = this.state.tasks.findIndex(t => t.id === task.id);
+      if (existingIdx >= 0) {
+        this.state.tasks[existingIdx] = {
+          ...this.state.tasks[existingIdx],
+          ...task,
+          x: (typeof task.x === 'number' && !isNaN(task.x)) ? task.x : this.state.tasks[existingIdx].x,
+          y: (typeof task.y === 'number' && !isNaN(task.y)) ? task.y : this.state.tasks[existingIdx].y
+        };
+      } else {
+        const nodeCount = this.state.tasks.length;
+        const x = (typeof task.x === 'number' && !isNaN(task.x) && !(task.x === 400 && task.y === 250))
+          ? task.x
+          : (180 + (nodeCount % 5) * 160 + (Math.random() * 20 - 10));
+        const y = (typeof task.y === 'number' && !isNaN(task.y) && !(task.x === 400 && task.y === 250))
+          ? task.y
+          : (140 + Math.floor(nodeCount / 5) * 140 + (Math.random() * 20 - 10));
+        this.state.tasks.push({ ...task, x, y });
         this.recalculateGraphMetrics();
         this.addToast('Task Created', `[${task.id}] ${task.title} published to graph`, 'info');
-        this.saveState();
       }
+      this.saveState();
     });
+
     wsClient.on('task_updated', (task) => {
       const idx = this.state.tasks.findIndex(t => t.id === task.id);
-      if (idx >= 0) this.state.tasks[idx] = { ...this.state.tasks[idx], ...task };
-      else this.state.tasks.push(task);
+      if (idx >= 0) {
+        this.state.tasks[idx] = {
+          ...this.state.tasks[idx],
+          ...task,
+          x: (typeof task.x === 'number' && !isNaN(task.x)) ? task.x : this.state.tasks[idx].x,
+          y: (typeof task.y === 'number' && !isNaN(task.y)) ? task.y : this.state.tasks[idx].y
+        };
+      } else {
+        this.state.tasks.push(task);
+      }
       this.recalculateGraphMetrics();
       this.saveState();
     });
+
     wsClient.on('task_deleted', ({ id }) => {
       this.state.tasks = this.state.tasks.filter(t => t.id !== id);
       this.state.tasks.forEach(t => {
@@ -268,6 +293,7 @@ class StateStore {
       this.recalculateGraphMetrics();
       this.saveState();
     });
+
     wsClient.on('alert_created', (alert) => {
       if (!this.state.aiAlerts.find(a => a.id === alert.id)) {
         this.state.aiAlerts.unshift({ ...alert, timestamp: 'Just now' });
@@ -428,55 +454,72 @@ class StateStore {
     this.state.systemStats.graphEdgeCount = this.state.tasks.reduce((sum, t) => sum + (t.dependsOn ? t.dependsOn.length : 0), 0);
   }
 
-  addTask(taskData) {
-    const newId = `TASK-${100 + this.state.tasks.length + 1}`;
-    const newTask = {
-      id: newId,
+  async addTask(taskData) {
+    const defaultAssignee = this.state.currentUser ? this.state.currentUser.name : (this.state.users[0]?.name || 'Sarah Jenkins');
+    const defaultProject = this.state.projects[0] ? this.state.projects[0].name : 'Sprint Alpha - Cloud Migration';
+
+    // Spread node positions in a clean, non-overlapping grid layout
+    const nodeCount = this.state.tasks.length;
+    const calcX = 180 + (nodeCount % 5) * 160 + (Math.random() * 30 - 15);
+    const calcY = 140 + Math.floor(nodeCount / 5) * 140 + (Math.random() * 30 - 15);
+
+    const payload = {
       title: taskData.title,
       description: taskData.description || '',
-      project: taskData.project || 'Sprint Alpha - Cloud Migration',
-      assignee: taskData.assignee || 'Sarah Jenkins',
+      project: taskData.project || defaultProject,
+      assignee: taskData.assignee || defaultAssignee,
       status: taskData.status || 'in_progress',
       priority: taskData.priority || 'Medium',
       dependsOn: taskData.dependsOn ? (Array.isArray(taskData.dependsOn) ? taskData.dependsOn : [taskData.dependsOn]) : [],
-      x: 400 + (Math.random() * 120 - 60),
-      y: 250 + (Math.random() * 120 - 60),
       dueDate: taskData.dueDate || '2026-08-10',
-      aiRiskScore: 0.15,
-      riskReason: null
+      x: calcX,
+      y: calcY
     };
 
     // Update user capacity
-    const assigneeUser = this.state.users.find(u => u.name === newTask.assignee);
+    const assigneeUser = this.state.users.find(u => u.name === payload.assignee);
     if (assigneeUser) {
-      assigneeUser.activeTasks += 1;
-      assigneeUser.capacity = Math.min(130, assigneeUser.capacity + 20);
+      assigneeUser.activeTasks = (assigneeUser.activeTasks || 0) + 1;
+      assigneeUser.capacity = Math.min(130, (assigneeUser.capacity || 80) + 20);
     }
 
-    this.state.tasks.push(newTask);
-    this.recalculateGraphMetrics();
-    this.addActivityLog(newTask.id, 'task_created', null, newTask.title);
-    this.addToast('Task Published', `[${newTask.id}] "${newTask.title}" added to live task graph.`, 'success');
-    this.logSwarmActivity('AI Assistant Agent', 'Task Graph Insertion', `Indexed new node ${newTask.id} with ${newTask.dependsOn.length} dependency edges.`);
-    this.saveState();
+    try {
+      const serverTask = await api.createTask(payload);
+      if (typeof serverTask.x !== 'number' || isNaN(serverTask.x) || (serverTask.x === 400 && serverTask.y === 250)) {
+        serverTask.x = calcX;
+        serverTask.y = calcY;
+      }
+      const existingIdx = this.state.tasks.findIndex(t => t.id === serverTask.id);
+      if (existingIdx >= 0) {
+        this.state.tasks[existingIdx] = serverTask;
+      } else {
+        this.state.tasks.push(serverTask);
+      }
 
-    api.createTask({
-      title: newTask.title,
-      description: newTask.description,
-      project: newTask.project,
-      assignee: newTask.assignee,
-      status: newTask.status,
-      priority: newTask.priority,
-      dependsOn: newTask.dependsOn,
-      dueDate: newTask.dueDate
-    }).then(serverTask => {
-      const idx = this.state.tasks.findIndex(t => t.id === newId);
-      if (idx >= 0) this.state.tasks[idx] = serverTask;
+      this.recalculateGraphMetrics();
+      this.addActivityLog(serverTask.id, 'task_created', null, serverTask.title);
+      this.addToast('Task Published', `[${serverTask.id}] "${serverTask.title}" added to live task graph.`, 'success');
+      this.logSwarmActivity('AI Assistant Agent', 'Task Graph Insertion', `Indexed new node ${serverTask.id} with ${serverTask.dependsOn ? serverTask.dependsOn.length : 0} dependency edges.`);
       this.saveState();
-    }).catch(() => { /* Offline fallback already saved locally */ });
-
-    return newTask;
+      return serverTask;
+    } catch (err) {
+      console.warn('Backend task creation failed, saving to local store', err);
+      const newId = `TASK-${100 + this.state.tasks.length + 1}`;
+      const localTask = {
+        id: newId,
+        ...payload,
+        aiRiskScore: 0.15,
+        riskReason: null
+      };
+      this.state.tasks.push(localTask);
+      this.recalculateGraphMetrics();
+      this.addActivityLog(localTask.id, 'task_created', null, localTask.title);
+      this.addToast('Task Published (Local)', `[${localTask.id}] "${localTask.title}" saved.`, 'warning');
+      this.saveState();
+      return localTask;
+    }
   }
+
 
   updateTaskStatus(taskId, status) {
     const task = this.state.tasks.find(t => t.id === taskId);

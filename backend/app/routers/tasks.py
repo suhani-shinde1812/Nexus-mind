@@ -15,12 +15,19 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
 
 def _next_task_id(db: Session) -> str:
-    count = db.query(models.Task).count()
-    candidate = f"TASK-{100 + count + 1}"
-    while db.get(models.Task, candidate):
-        count += 1
-        candidate = f"TASK-{100 + count + 1}"
-    return candidate
+    tasks = db.query(models.Task.id).all()
+    history = db.query(models.TaskHistory.task_id).all()
+    max_num = 100
+    for (t_id,) in tasks + history:
+        if t_id and t_id.startswith("TASK-"):
+            try:
+                num = int(t_id.split("-")[1])
+                if num > max_num:
+                    max_num = num
+            except (ValueError, IndexError):
+                pass
+    return f"TASK-{max_num + 1}"
+
 
 
 def _log_history(db: Session, task_id: str, event_type: str, from_value, to_value, actor_id: str):
@@ -39,7 +46,7 @@ def _log_history(db: Session, task_id: str, event_type: str, from_value, to_valu
 def list_tasks(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     query = db.query(models.Task)
     if current_user.org_id:
-        query = query.filter(models.Task.org_id == current_user.org_id)
+        query = query.filter((models.Task.org_id == current_user.org_id) | (models.Task.org_id == None))
     return [task_to_dict(t) for t in query.all()]
 
 
@@ -49,22 +56,43 @@ async def create_task(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    project = db.query(models.Project).filter(models.Project.name == payload.project).first() if payload.project else None
-    assignee = db.query(models.User).filter(models.User.name == payload.assignee).first() if payload.assignee else None
+    project = None
+    if payload.project:
+        project = db.query(models.Project).filter(
+            (models.Project.name == payload.project) | (models.Project.id == payload.project)
+        ).first()
+    if not project and current_user.org_id:
+        project = db.query(models.Project).filter(
+            (models.Project.org_id == current_user.org_id) | (models.Project.org_id == None)
+        ).first()
+    if not project:
+        project = db.query(models.Project).first()
+
+    assignee = None
+    if payload.assignee:
+        assignee = db.query(models.User).filter(
+            (models.User.name == payload.assignee) | (models.User.id == payload.assignee) | (models.User.email == payload.assignee)
+        ).first()
+    if not assignee:
+        assignee = current_user
+
+    existing_count = db.query(models.Task).count()
+    default_x = 180.0 + (existing_count % 5) * 160.0
+    default_y = 140.0 + (existing_count // 5) * 140.0
 
     task = models.Task(
         id=_next_task_id(db),
         org_id=current_user.org_id,
         title=payload.title,
-        description=payload.description,
+        description=payload.description or "",
         project_id=project.id if project else None,
         assignee_id=assignee.id if assignee else None,
         status=payload.status,
         priority=payload.priority,
-        depends_on=payload.dependsOn,
+        depends_on=payload.dependsOn or [],
         due_date=payload.dueDate or "",
-        x=400.0,
-        y=250.0,
+        x=payload.x if (payload.x is not None and payload.x > 0) else default_x,
+        y=payload.y if (payload.y is not None and payload.y > 0) else default_y,
         ai_risk_score=0.1,
     )
     db.add(task)
@@ -80,6 +108,7 @@ async def create_task(
     data = task_to_dict(task)
     await manager.publish("task_created", data)
     return data
+
 
 
 @router.patch("/{task_id}/status", response_model=schemas.TaskOut)

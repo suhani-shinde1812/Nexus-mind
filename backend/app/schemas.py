@@ -159,6 +159,9 @@ class TaskCreateIn(BaseModel):
     priority: str = "Medium"
     dependsOn: list[str] = Field(default_factory=list)
     dueDate: Optional[str] = None
+    x: Optional[float] = None
+    y: Optional[float] = None
+
 
 
 class TaskStatusIn(BaseModel):
