@@ -30,9 +30,27 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Ensure all tables and columns exist safely and idempotently
+    from sqlalchemy import inspect, text
+    from app import models
+    from app.database import Base, engine
+    Base.metadata.create_all(bind=engine)
+
+    try:
+        inspector = inspect(engine)
+        if "alerts" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("alerts")]
+            if "org_id" not in columns:
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE alerts ADD COLUMN org_id VARCHAR(36)"))
+                    conn.commit()
+    except Exception as e:
+        print(f"Warning: Schema alignment check: {e}")
+
     await manager.startup()
     yield
     await manager.shutdown()
+
 
 
 app = FastAPI(

@@ -400,18 +400,27 @@ class NexusApp {
 
     if (!modal) return;
 
-    const populateDependencies = () => {
-      if (!depSelect) return;
-      const tasks = store.getState().tasks;
-      depSelect.innerHTML = '<option value="">None (Standalone)</option>' +
-        tasks.map(t => `<option value="${t.id}">[${t.id}] ${t.title}</option>`).join('');
+    const populateDynamicFields = () => {
+      const state = store.getState();
+      if (depSelect) {
+        depSelect.innerHTML = '<option value="">None (Standalone)</option>' +
+          state.tasks.map(t => `<option value="${t.id}">[${t.id}] ${t.title}</option>`).join('');
+      }
+      const assigneeSelect = document.getElementById('taskAssigneeSelect');
+      if (assigneeSelect && state.users.length > 0) {
+        assigneeSelect.innerHTML = state.users.map(u => `<option value="${u.name}">${u.name} (${u.role})</option>`).join('');
+      }
+      const projSelect = document.getElementById('taskProjectSelect');
+      if (projSelect && state.projects.length > 0) {
+        projSelect.innerHTML = state.projects.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+      }
     };
 
     const deadlineInput = document.getElementById('taskDeadlineInput');
 
     if (openBtn) {
       openBtn.addEventListener('click', () => {
-        populateDependencies();
+        populateDynamicFields();
         if (deadlineInput) {
           const today = new Date().toISOString().split('T')[0];
           deadlineInput.min = today;
@@ -420,6 +429,7 @@ class NexusApp {
         modal.classList.remove('hidden');
       });
     }
+
 
     const closeModal = () => modal.classList.add('hidden');
     if (closeBtn) closeBtn.addEventListener('click', closeModal);
@@ -586,17 +596,23 @@ class NexusApp {
     if (!modal) return;
 
     const populateAttendees = () => {
-      if (!attendeesList) return;
       const state = store.getState();
-      attendeesList.innerHTML = state.users
-        .filter(u => u.role !== 'Administrator' || state.currentRole === 'admin')
-        .map(u => `
-          <label style="display:flex; align-items:center; gap:8px; font-size:0.8rem; color: var(--text-primary); padding: 4px 0; cursor: pointer;">
-            <input type="checkbox" class="meeting-attendee-checkbox" value="${u.name}" ${u.name === state.currentUser.name ? 'checked' : ''} />
-            ${u.name} <span style="color: var(--text-muted);">(${u.role})</span>
-          </label>
-        `).join('');
+      if (attendeesList) {
+        attendeesList.innerHTML = state.users
+          .map(u => `
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.8rem; color: var(--text-primary); padding: 4px 0; cursor: pointer;">
+              <input type="checkbox" class="meeting-attendee-checkbox" value="${u.name}" ${u.name === state.currentUser?.name ? 'checked' : ''} />
+              ${u.name} <span style="color: var(--text-muted);">(${u.role})</span>
+            </label>
+          `).join('');
+      }
+      const projSelect = document.getElementById('meetingProjectSelect');
+      if (projSelect && state.projects.length > 0) {
+        projSelect.innerHTML = state.projects.map(p => `<option value="${p.name}">${p.name}</option>`).join('') +
+          '<option value="General">General / Cross-team</option>';
+      }
     };
+
 
     const openModal = () => {
       populateAttendees();

@@ -40,7 +40,8 @@ class Settings(BaseSettings):
     github_webhook_secret: str = "nexusmind-github-webhook-secret-2026"
 
     # CORS
-    cors_origins: str = "http://localhost:5173,http://localhost:4173,http://localhost:3000"
+    cors_origins: str = "http://localhost:5173,http://localhost:4173,http://localhost:3000,http://localhost:8000,https://nexus-mind-qv03.onrender.com"
+
 
     # Push notifications
     fcm_server_key: str | None = None

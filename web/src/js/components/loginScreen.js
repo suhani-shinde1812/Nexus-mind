@@ -94,19 +94,6 @@ export function mountLoginScreen(onSuccess) {
       <h1>NEXUS<span style="color:#00F2FE">MIND</span></h1>
       <p class="sub">Unified AI Workspace & Live Task Graph Platform</p>
 
-      <!-- 1-Click Instant Demo Section -->
-      <div class="demo-section">
-        <div class="demo-title">⚡ 1-CLICK EXAMINER & DEMO ACCESS</div>
-        <div class="demo-roles-grid">
-          <button class="demo-role-btn" data-role="team_lead">👩‍💼 Sarah (Team Lead)</button>
-          <button class="demo-role-btn" data-role="employee">👨‍💻 Alex (Lead Dev)</button>
-          <button class="demo-role-btn" data-role="project_manager">📊 Marcus (Proj Mgr)</button>
-          <button class="demo-role-btn" data-role="admin">🛡️ Elena (Admin)</button>
-        </div>
-      </div>
-
-      <div class="divider">OR USE AUTHENTICATION CREDENTIALS</div>
-
       <!-- Tabs: Sign In / Create Account -->
       <div class="auth-tabs-row">
         <button class="auth-tab-btn active" id="tabBtnSignIn">Sign In</button>
@@ -116,14 +103,15 @@ export function mountLoginScreen(onSuccess) {
       <!-- FORM 1: SIGN IN -->
       <form id="nexusLoginForm">
         <label for="nexusLoginEmail">Email Address</label>
-        <input id="nexusLoginEmail" type="email" required autocomplete="username" placeholder="sarah.jenkins@nexusmind.ai" value="sarah.jenkins@nexusmind.ai" />
+        <input id="nexusLoginEmail" type="email" required autocomplete="username" placeholder="name@company.com" value="" />
         
         <label for="nexusLoginPassword">Password</label>
-        <input id="nexusLoginPassword" type="password" required autocomplete="current-password" placeholder="••••••••" value="nexus-demo-2026" />
+        <input id="nexusLoginPassword" type="password" required autocomplete="current-password" placeholder="Enter your password" value="" />
         
         <button type="submit" id="nexusLoginSubmit" class="btn-submit">Sign In to Workspace</button>
         <div class="error-msg" id="nexusLoginError"></div>
       </form>
+
 
       <!-- FORM 2: CREATE ACCOUNT (REGISTER) -->
       <form id="nexusRegisterForm" class="hidden">

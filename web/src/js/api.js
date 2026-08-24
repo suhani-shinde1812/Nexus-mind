@@ -4,8 +4,9 @@
  * Provides resilient fallback for standalone / demo mode.
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-const WS_BASE = import.meta.env.VITE_WS_BASE_URL || API_BASE.replace(/^http/, 'ws');
+const isBrowser = typeof window !== 'undefined';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || (isBrowser ? window.location.origin : 'http://localhost:8000');
+const WS_BASE = import.meta.env.VITE_WS_BASE_URL || (isBrowser ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}` : API_BASE.replace(/^http/, 'ws'));
 const TOKEN_KEY = 'NEXUS_MIND_AUTH_TOKENS_V1';
 
 class ApiClient {
@@ -43,6 +44,11 @@ class ApiClient {
   get wsUrl() {
     return `${WS_BASE}/ws?token=${encodeURIComponent(this.accessToken || '')}`;
   }
+
+  get apiBase() {
+    return API_BASE;
+  }
+
 
   async _request(path, { method = 'GET', body, auth = true, form = false } = {}) {
     const headers = {};
@@ -226,12 +232,16 @@ class ApiClient {
   }
 
   // ---- Meetings ----
+  getMeetings() {
+    return this._request('/api/meetings');
+  }
   createMeeting(payload) {
     return this._request('/api/meetings', { method: 'POST', body: payload });
   }
   cancelMeeting(meetingId) {
     return this._request(`/api/meetings/${meetingId}/cancel`, { method: 'POST' });
   }
+
 
   // ---- Alerts ----
   createAlert(payload) {

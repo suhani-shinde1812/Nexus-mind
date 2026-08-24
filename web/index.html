@@ -67,10 +67,10 @@
         <div class="role-selector-wrapper">
           <label for="roleSelect" class="role-label">VIEW AS:</label>
           <select id="roleSelect" class="role-select">
-            <option value="employee">👨‍💻 Employee (Alex Vance)</option>
-            <option value="team_lead" selected>👩‍💼 Team Lead (Sarah Jenkins)</option>
-            <option value="project_manager">📊 Project Mgr (Marcus Chen)</option>
-            <option value="admin">🛡️ Administrator (Elena Rostova)</option>
+            <option value="employee">👨‍💻 Employee Workspace</option>
+            <option value="team_lead" selected>👩‍💼 Team Lead Portal</option>
+            <option value="project_manager">📊 Project Manager Portal</option>
+            <option value="admin">🛡️ Administrator Console</option>
           </select>
         </div>
 
@@ -93,15 +93,15 @@
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
           </svg>
-          <span id="unreadCount" class="badge-count">3</span>
+          <span id="unreadCount" class="badge-count">0</span>
         </button>
 
         <!-- User Profile Pill -->
         <div class="user-pill" id="userProfilePill">
-          <div class="user-avatar" id="navUserAvatar">SJ</div>
+          <div class="user-avatar" id="navUserAvatar">NM</div>
           <div class="user-info">
-            <span class="user-name" id="navUserName">Sarah Jenkins</span>
-            <span class="user-role-badge" id="navUserRole">Team Lead</span>
+            <span class="user-name" id="navUserName">Workspace User</span>
+            <span class="user-role-badge" id="navUserRole">Member</span>
           </div>
         </div>
 
@@ -319,10 +319,7 @@
             <div class="form-group">
               <label>Assignee</label>
               <select id="taskAssigneeSelect" required>
-                <option value="Alex Vance">Alex Vance (Frontend Lead)</option>
-                <option value="Sarah Jenkins">Sarah Jenkins (Team Lead)</option>
-                <option value="Devon Reed">Devon Reed (Backend Eng)</option>
-                <option value="Priya Sharma">Priya Sharma (AI/ML Eng)</option>
+                <option value="">Select Assignee...</option>
               </select>
             </div>
             <div class="form-group">
@@ -449,27 +446,25 @@
     </div>
 
     <!-- LIVE VIDEO MEETING MODAL -->
-<div id="liveMeetingModal" class="modal-backdrop hidden">
-  <div class="live-meeting-window">
-
-    <div class="live-meeting-header">
-      <div>
-        <h2 id="liveMeetingTitle">Nexus Mind Meeting</h2>
-        <span id="liveMeetingRoom"></span>
+    <div id="liveMeetingModal" class="modal-backdrop hidden">
+      <div class="live-meeting-window" style="width: 90vw; max-width: 1100px; height: 85vh; background: #0b0f19; border: 1px solid rgba(0, 242, 254, 0.3); border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);">
+        <div class="live-meeting-header" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(15, 23, 42, 0.95);">
+          <div>
+            <h2 id="liveMeetingTitle" style="font-size: 1.1rem; color: #fff; margin: 0 0 4px; font-weight: 700;">Nexus Mind Meeting</h2>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="liveMeetingRoom" style="font-size: 0.75rem; color: var(--text-muted);"></span>
+              <span id="liveMeetingStatusBadge" class="search-item-tag" style="background: rgba(0,242,254,0.15); color: #00F2FE;">LIVE WEBRTC ROOM</span>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <a id="btnOpenExternalMeeting" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-xs" style="text-decoration: none;">🚀 Open in New Tab</a>
+            <button type="button" id="btnCopyMeetingLink" class="btn btn-ghost btn-xs">📋 Copy Link</button>
+            <button type="button" id="btnCloseLiveMeeting" class="close-modal" style="background: none; border: none; color: #94A3B8; font-size: 1.5rem; cursor: pointer; line-height: 1;">&times;</button>
+          </div>
+        </div>
+        <div id="jitsiContainer" class="jitsi-container" style="flex: 1; width: 100%; min-height: 500px; position: relative;"></div>
       </div>
-
-      <button
-        type="button"
-        id="btnCloseLiveMeeting"
-        class="close-modal">
-        &times;
-      </button>
     </div>
-
-    <div id="jitsiContainer" class="jitsi-container"></div>
-
-  </div>
-</div>
 
     <!-- MODAL 2: AI ASSISTANT CHAT MODAL -->
     <div id="aiChatModal" class="modal-backdrop hidden">

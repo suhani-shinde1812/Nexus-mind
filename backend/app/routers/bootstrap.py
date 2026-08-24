@@ -15,14 +15,25 @@ router = APIRouter(prefix="/api", tags=["bootstrap"])
 
 @router.get("/bootstrap")
 def bootstrap(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    users = db.query(models.User).all()
-    tasks = db.query(models.Task).all()
-    projects = db.query(models.Project).all()
+    org_id = current_user.org_id
+    if org_id:
+        users = db.query(models.User).filter((models.User.org_id == org_id) | (models.User.org_id == None)).all()
+        tasks = db.query(models.Task).filter((models.Task.org_id == org_id) | (models.Task.org_id == None)).all()
+        projects = db.query(models.Project).filter((models.Project.org_id == org_id) | (models.Project.org_id == None)).all()
+        meetings = db.query(models.Meeting).filter((models.Meeting.org_id == org_id) | (models.Meeting.org_id == None)).order_by(models.Meeting.created_at.desc()).all()
+        alerts = db.query(models.Alert).filter((models.Alert.org_id == org_id) | (models.Alert.org_id == None)).order_by(models.Alert.created_at.desc()).limit(50).all()
+
+    else:
+        users = db.query(models.User).all()
+        tasks = db.query(models.Task).all()
+        projects = db.query(models.Project).all()
+        meetings = db.query(models.Meeting).order_by(models.Meeting.created_at.desc()).all()
+        alerts = db.query(models.Alert).order_by(models.Alert.created_at.desc()).limit(50).all()
+
     policies = db.query(models.Policy).all()
-    alerts = db.query(models.Alert).order_by(models.Alert.created_at.desc()).limit(50).all()
-    meetings = db.query(models.Meeting).all()
     history = db.query(models.TaskHistory).order_by(models.TaskHistory.created_at.desc()).limit(30).all()
     user_map = {u.id: u.name for u in users}
+
 
     activity_logs = [
         {

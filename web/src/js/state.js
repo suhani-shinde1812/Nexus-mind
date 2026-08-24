@@ -56,39 +56,37 @@ const SEEDED_ACTIVITY_LOGS = [
   { id: 'act-1', taskId: 'TASK-102', eventType: 'risk_escalated', fromValue: '0.4', toValue: '0.85', actor: 'AI Monitoring Agent', timestamp: '15 mins ago' },
   { id: 'act-2', taskId: 'TASK-101', eventType: 'status_change', fromValue: 'in_progress', toValue: 'done', actor: 'Devon Reed', timestamp: '2 hours ago' },
   { id: 'act-3', taskId: 'TASK-103', eventType: 'dependency_linked', fromValue: null, toValue: 'TASK-102', actor: 'Sarah Jenkins', timestamp: '4 hours ago' },
-  { id: 'act-4', taskId: 'TASK-106', eventType: 'status_change', fromValue: 'in_progress', toValue: 'blocked', actor: 'Devon Reed', timestamp: '6 hours ago' },
+  { id: 'act-4', taskId: 'TASK-106', eventType: 'status_change', fromValue: 'in_progress', toValue: 'blocked', actor: 'Devon Reed', timestamp: '6 hours ago' }
 ];
 
 class StateStore {
   constructor() {
     this.listeners = [];
+    const isAuthed = api.isAuthenticated;
     this.state = {
       theme: localStorage.getItem(THEME_KEY) || 'dark',
-      currentRole: 'team_lead',
+      currentRole: 'employee',
       currentView: 'graph', // 'graph' | 'kanban' | 'timeline'
-      currentUser: SEEDED_USERS[1], // Sarah Jenkins
-      users: [...SEEDED_USERS],
-      projects: [...SEEDED_PROJECTS],
-      tasks: JSON.parse(JSON.stringify(SEEDED_TASKS)),
-      policies: [...SEEDED_POLICIES],
-      aiAlerts: [...SEEDED_ALERTS],
-      meetings: [...SEEDED_MEETINGS],
-      activityLogs: [...SEEDED_ACTIVITY_LOGS],
+      currentUser: isAuthed ? null : SEEDED_USERS[1],
+      users: isAuthed ? [] : [...SEEDED_USERS],
+      projects: isAuthed ? [] : [...SEEDED_PROJECTS],
+      tasks: isAuthed ? [] : JSON.parse(JSON.stringify(SEEDED_TASKS)),
+      policies: isAuthed ? [] : [...SEEDED_POLICIES],
+      aiAlerts: isAuthed ? [] : [...SEEDED_ALERTS],
+      meetings: isAuthed ? [] : [...SEEDED_MEETINGS],
+      activityLogs: isAuthed ? [] : [...SEEDED_ACTIVITY_LOGS],
       toasts: [],
       agentSwarmLogs: [
-        { agent: 'AI Monitoring Agent', action: 'Dependency Scan', status: 'Active', message: 'Calculated critical path for 8 nodes. 2 bottlenecks detected.', time: 'Just now' },
+        { agent: 'AI Monitoring Agent', action: 'Dependency Scan', status: 'Active', message: 'Calculated critical path for active graph nodes.', time: 'Just now' },
         { agent: 'AI Assistant Agent', action: 'Model Initialization', status: 'Ready', message: 'Neural heuristic decomposition online. Context window: 100k tokens.', time: '1 min ago' },
-        { agent: 'AI Workload Rebalancer', action: 'Capacity Audit', status: 'Optimizing', message: 'Identified Devon Reed (110% load). Recommendation ready.', time: '2 mins ago' }
+        { agent: 'AI Workload Rebalancer', action: 'Capacity Audit', status: 'Optimizing', message: 'Real-time workload optimization engine active.', time: '2 mins ago' }
       ],
       sprintForecast: {
         onTimeProbability: 84.5,
         expectedDelayDays: 1.8,
         criticalPathRisk: 0.72,
         simulationRuns: 500,
-        bottlenecks: [
-          { id: 'TASK-102', title: 'PostgreSQL Database Schema', riskScore: 0.85, reason: 'Capacity overload (110%)' },
-          { id: 'TASK-104', title: 'React Dashboard UI', riskScore: 0.92, reason: 'Prerequisite blocked' }
-        ],
+        bottlenecks: [],
         forecastCurve: [
           { day: '+1d', probability: 84.5 },
           { day: '+2d', probability: 91.2 },
@@ -99,16 +97,18 @@ class StateStore {
       systemStats: {
         cpuLoad: '18%',
         memoryUsage: '240 MB',
-        activeConnections: 6,
-        graphNodeCount: 8,
-        graphEdgeCount: 7,
+        activeConnections: 1,
+        graphNodeCount: 0,
+        graphEdgeCount: 0,
         aiInferenceLatency: '180ms'
       }
     };
     this.ready = true;
     this._bindRealtime();
     this._startTelemetryLoop();
+    this._startFallbackSyncLoop();
   }
+
 
   // ------------------------------------------------------------------
   // BOOTSTRAP / AUTH
@@ -238,6 +238,13 @@ class StateStore {
   // REALTIME WEBSOCKET SYNC
   // ------------------------------------------------------------------
   _bindRealtime() {
+    wsClient.on('connected', ({ reconnected }) => {
+      if (reconnected) {
+        this.syncMeetings();
+        this.init();
+      }
+    });
+
     wsClient.on('task_created', (task) => {
       if (!this.state.tasks.find(t => t.id === task.id)) {
         this.state.tasks.push(task);
@@ -269,17 +276,45 @@ class StateStore {
       }
     });
     wsClient.on('meeting_created', (meeting) => {
-      if (!this.state.meetings.find(m => m.id === meeting.id)) {
-        this.state.meetings.push(meeting);
+      const existing = this.state.meetings.find(m => m.id === meeting.id);
+      if (!existing) {
+        this.state.meetings.unshift(meeting);
+        this.addToast('Meeting Scheduled', `"${meeting.title}" set for ${meeting.date} at ${meeting.time}`, 'info');
+        this.saveState();
+      } else {
+        Object.assign(existing, meeting);
+        this.saveState();
+      }
+    });
+    wsClient.on('meeting_updated', (meeting) => {
+      const idx = this.state.meetings.findIndex(m => m.id === meeting.id);
+      if (idx >= 0) {
+        this.state.meetings[idx] = { ...this.state.meetings[idx], ...meeting };
+        this.saveState();
+      } else {
+        this.state.meetings.unshift(meeting);
         this.saveState();
       }
     });
     wsClient.on('meeting_cancelled', (meeting) => {
       const m = this.state.meetings.find(m => m.id === meeting.id);
-      if (m) m.status = 'cancelled';
-      this.saveState();
+      if (m) {
+        m.status = 'cancelled';
+        this.addToast('Meeting Cancelled', `"${meeting.title}" has been cancelled.`, 'warning');
+        this.saveState();
+      }
     });
   }
+
+  _startFallbackSyncLoop() {
+    // Periodic background sync fallback: fetch meetings every 15s if WS is down
+    setInterval(() => {
+      if (api.isAuthenticated && !wsClient.isConnected) {
+        this.syncMeetings();
+      }
+    }, 15000);
+  }
+
 
   _startTelemetryLoop() {
     // Subtle background telemetry variation to bring the admin dashboard alive
@@ -673,42 +708,76 @@ class StateStore {
   // ------------------------------------------------------------------
   // TEAM MEETINGS
   // ------------------------------------------------------------------
-  addMeeting(meetingData) {
-    const newMeeting = {
-      id: `MTG-${Date.now()}`,
-      title: meetingData.title,
-      project: meetingData.project || 'General',
-      date: meetingData.date,
-      time: meetingData.time,
-      duration: meetingData.duration || '30',
-      attendees: meetingData.attendees || [],
-      agenda: meetingData.agenda || '',
-      organizer: this.state.currentUser ? this.state.currentUser.name : 'Sarah Jenkins',
-      status: 'scheduled',
-      link: `https://meet.jit.si/NexusMind-${(meetingData.title || 'Meeting').replace(/[^a-zA-Z0-9]/g, '')}`
-    };
-
-    this.state.meetings.push(newMeeting);
-    this.addToast('Meeting Scheduled', `"${newMeeting.title}" set for ${newMeeting.date} at ${newMeeting.time}`, 'success');
-    this.saveState();
-
-    api.createMeeting({
-      title: newMeeting.title, project: newMeeting.project, date: newMeeting.date, time: newMeeting.time,
-      duration: newMeeting.duration, attendees: newMeeting.attendees, agenda: newMeeting.agenda
-    }).catch(() => {});
-
-    return newMeeting;
+  async addMeeting(meetingData) {
+    const organizer = this.state.currentUser ? this.state.currentUser.name : 'Organizer';
+    try {
+      const created = await api.createMeeting({
+        title: meetingData.title,
+        project: meetingData.project || 'General',
+        date: meetingData.date,
+        time: meetingData.time,
+        duration: meetingData.duration || '30',
+        attendees: meetingData.attendees || [],
+        agenda: meetingData.agenda || ''
+      });
+      const idx = this.state.meetings.findIndex(m => m.id === created.id);
+      if (idx >= 0) {
+        this.state.meetings[idx] = created;
+      } else {
+        this.state.meetings.unshift(created);
+      }
+      this.addToast('Meeting Scheduled', `"${created.title}" set for ${created.date} at ${created.time}`, 'success');
+      this.saveState();
+      return created;
+    } catch (err) {
+      console.warn('API meeting creation failed, saving locally', err);
+      const fallbackMeeting = {
+        id: `MTG-${Date.now()}`,
+        title: meetingData.title,
+        project: meetingData.project || 'General',
+        date: meetingData.date,
+        time: meetingData.time,
+        duration: meetingData.duration || '30',
+        attendees: meetingData.attendees || [],
+        agenda: meetingData.agenda || '',
+        organizer: organizer,
+        status: 'scheduled',
+        link: `https://meet.jit.si/nexusmind-mtg-${Date.now()}`
+      };
+      this.state.meetings.unshift(fallbackMeeting);
+      this.addToast('Meeting Scheduled', `"${fallbackMeeting.title}" set for ${fallbackMeeting.date} at ${fallbackMeeting.time}`, 'warning');
+      this.saveState();
+      return fallbackMeeting;
+    }
   }
 
-  cancelMeeting(meetingId) {
+  async cancelMeeting(meetingId) {
     const meeting = this.state.meetings.find(m => m.id === meetingId);
     if (meeting) {
       meeting.status = 'cancelled';
       this.addToast('Meeting Cancelled', `"${meeting.title}" has been cancelled.`, 'warning');
       this.saveState();
-      api.cancelMeeting(meetingId).catch(() => {});
+      try {
+        await api.cancelMeeting(meetingId);
+      } catch (e) {
+        console.warn('Cancel meeting API call error:', e);
+      }
     }
   }
+
+  async syncMeetings() {
+    if (!api.isAuthenticated) return;
+    try {
+      const meetings = await api.getMeetings();
+      if (Array.isArray(meetings)) {
+        this.state.meetings = meetings;
+        this.saveState();
+      }
+    } catch (e) {
+      console.warn('Sync meetings error:', e);
+    }
+  }
+
 
   // ------------------------------------------------------------------
   // EXPORT & REPORTING

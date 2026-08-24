@@ -249,12 +249,14 @@ class Alert(Base):
     __tablename__ = "alerts"
 
     id: Mapped[str] = mapped_column(String(40), primary_key=True, default=lambda: f"alt-{_uuid()[:10]}")
+    org_id: Mapped[str | None] = mapped_column(ForeignKey("organizations.id"), nullable=True)
     severity: Mapped[str] = mapped_column(String(20), default="info")
     title: Mapped[str] = mapped_column(String(300))
     message: Mapped[str] = mapped_column(Text)
     task_id: Mapped[str | None] = mapped_column(ForeignKey("tasks.id"), nullable=True)
     read: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
 
 
 # --------------------------------------------------------------------------

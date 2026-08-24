@@ -677,6 +677,9 @@ export class RolePortals {
     const container = document.getElementById('jitsiContainer');
     const title = document.getElementById('liveMeetingTitle');
     const roomLabel = document.getElementById('liveMeetingRoom');
+    const externalBtn = document.getElementById('btnOpenExternalMeeting');
+    const copyBtn = document.getElementById('btnCopyMeetingLink');
+    const closeBtn = document.getElementById('btnCloseLiveMeeting');
 
     if (!modal || !container) return;
 
@@ -686,23 +689,95 @@ export class RolePortals {
     }
 
     container.innerHTML = '';
-    const safeTitle = (meeting.title || 'TeamMeeting').replace(/[^a-zA-Z0-9]/g, '').substring(0, 25);
-    const roomName = `NexusMind-${safeTitle}-${meeting.id}`;
+
+    // Deterministic room name identical for all participants:
+    const cleanId = (meeting.id || 'room').toLowerCase().replace(/[^a-z0-9]/g, '-');
+    const roomName = meeting.room_id || (meeting.link ? meeting.link.split('/').pop() : `nexusmind-${cleanId}`);
+    const jitsiUrl = `https://meet.jit.si/${roomName}`;
+
+    console.log(`[Jitsi] Connecting to room: ${roomName} (${jitsiUrl})`);
 
     if (title) title.textContent = `🎥 ${meeting.title}`;
-    if (roomLabel) roomLabel.textContent = `${meeting.date} • ${meeting.time}`;
+    if (roomLabel) roomLabel.textContent = `${meeting.date} • ${meeting.time} | Room: ${roomName}`;
+    if (externalBtn) {
+      externalBtn.href = jitsiUrl;
+      externalBtn.style.display = 'inline-flex';
+    }
+    if (copyBtn) {
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(jitsiUrl).then(() => {
+          store.addToast('Link Copied', 'Jitsi video room link copied to clipboard!', 'info');
+        });
+      };
+    }
+    if (closeBtn) {
+      closeBtn.onclick = () => {
+        if (window.nexusJitsiApi) {
+          try { window.nexusJitsiApi.dispose(); } catch {}
+          window.nexusJitsiApi = null;
+        }
+        container.innerHTML = '';
+        modal.classList.add('hidden');
+      };
+    }
+
     modal.classList.remove('hidden');
 
+    const currentUser = store.getState().currentUser || {};
+    const displayName = currentUser.name || 'Participant';
+    const email = currentUser.email || '';
+
     if (typeof window.JitsiMeetExternalAPI === 'function') {
-      window.nexusJitsiApi = new window.JitsiMeetExternalAPI('meet.jit.si', {
-        roomName,
-        parentNode: container,
-        width: '100%',
-        height: '100%',
-        userInfo: { displayName: store.getState().currentUser.name }
-      });
+      try {
+        window.nexusJitsiApi = new window.JitsiMeetExternalAPI('meet.jit.si', {
+          roomName: roomName,
+          parentNode: container,
+          width: '100%',
+          height: '100%',
+          configOverwrite: {
+            prejoinConfig: { enabled: false },
+            startWithAudioMuted: false,
+            startWithVideoMuted: false,
+            enableWelcomePage: false,
+            enableClosePage: false,
+            disableDeepLinking: true
+          },
+          interfaceConfigOverwrite: {
+            SHOW_JITSI_WATERMARK: false,
+            SHOW_WATERMARK_FOR_GUESTS: false,
+            TOOLBAR_BUTTONS: [
+              'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
+              'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
+              'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
+              'videoquality', 'filmstrip', 'invite', 'feedback', 'stats', 'shortcuts',
+              'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone', 'security'
+            ]
+          },
+          userInfo: {
+            displayName: displayName,
+            email: email
+          }
+        });
+      } catch (err) {
+        console.warn('[Jitsi] External API initialization failed, falling back to secure iframe:', err);
+        this._renderJitsiIframe(container, jitsiUrl);
+      }
+    } else {
+      console.log('[Jitsi] External API not loaded, rendering secure WebRTC iframe');
+      this._renderJitsiIframe(container, jitsiUrl);
     }
   }
+
+  _renderJitsiIframe(container, jitsiUrl) {
+    container.innerHTML = `
+      <iframe
+        src="${jitsiUrl}#config.prejoinConfig.enabled=false"
+        allow="camera; microphone; fullscreen; display-capture; autoplay; clipboard-write; speaker"
+        style="width: 100%; height: 100%; min-height: 520px; border: none; border-radius: 12px; background: #000;"
+      ></iframe>
+    `;
+  }
+
 
   // --------------------------------------------------------------------------
   // 9. KNOWLEDGE BASE & POLICY HUB TAB
