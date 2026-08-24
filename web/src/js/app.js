@@ -226,6 +226,14 @@ class NexusApp {
       admin: '🛡️ Administrator Organization Portal'
     };
     if (portalTitle) portalTitle.textContent = titleMap[state.currentRole] || 'Workspace Portal';
+
+    const portalSub = document.getElementById('portalSub');
+    if (portalSub) {
+      const activeProjectsCount = state.projects ? state.projects.length : 0;
+      const activeMembersCount = state.users ? state.users.length : 0;
+      const blockedTasksCount = state.tasks ? state.tasks.filter(t => t.status === 'blocked').length : 0;
+      portalSub.textContent = `Organization Workspace • ${activeProjectsCount} Active Project${activeProjectsCount === 1 ? '' : 's'} • ${activeMembersCount} Team Member${activeMembersCount === 1 ? '' : 's'} • ${blockedTasksCount} Blocked`;
+    }
   }
 
   updateUnreadCount() {
@@ -408,6 +416,17 @@ class NexusApp {
           }
 
           bubble.innerHTML = html;
+
+          if (response.agent && response.trace) {
+            store.logSwarmActivity(
+              response.agent,
+              response.trace.intent || 'Query Execution',
+              response.trace.evidence || (response.message ? response.message.substring(0, 90) : 'Executed database query'),
+              'Active',
+              response.trace.tools_executed?.join(', ') || null,
+              response.trace
+            );
+          }
         }
       } catch (err) {
         const bubble = assistantDiv.querySelector('.msg-bubble');

@@ -248,40 +248,14 @@
     <div id="nexusToastContainer" class="toast-container"></div>
 
 
-    <!-- FOOTER AI AGENT HUD & NATURAL LANGUAGE LAUNCHER -->
+    <!-- FOOTER AI COPILOT LAUNCHER -->
     <footer class="ai-hud-footer glass-panel">
-      <div class="ai-agent-pills">
-        <div class="agent-pill active" id="agentMonitoringPill">
-          <div class="agent-avatar monitoring">🤖</div>
-          <div class="agent-info">
-            <span class="agent-name">AI Monitoring Agent</span>
-            <span class="agent-status" id="monitoringStatus">Scanning SLA & Risk Matrix...</span>
-          </div>
-        </div>
-
-        <div class="agent-pill active" id="agentAssistantPill">
-          <div class="agent-avatar assistant">💡</div>
-          <div class="agent-info">
-            <span class="agent-name">AI Assistant Agent</span>
-            <span class="agent-status" id="assistantStatus">Ready for Prompts</span>
-          </div>
-        </div>
-
-        <div class="agent-pill active" id="agentSearchPill">
-          <div class="agent-avatar search">🔍</div>
-          <div class="agent-info">
-            <span class="agent-name">AI Search Agent</span>
-            <span class="agent-status" id="searchStatus">Indexed 48 Tasks & Docs</span>
-          </div>
-        </div>
-      </div>
-
       <form id="aiPromptForm" class="ai-prompt-form">
         <div class="prompt-input-container">
           <span class="sparkle-icon">✨</span>
-          <input type="text" id="aiPromptInput" placeholder="Ask AI Assistant: 'Break down OAuth', 'Who has bandwidth?', or 'TASK-102 details'..." />
-          <button type="submit" class="btn btn-primary btn-sm">
-            <span>Send Prompt</span>
+          <input type="text" id="aiPromptInput" placeholder="Ask AI Copilot: 'Who is working on Authentication?', 'Which projects are active?', or 'Who is overloaded?'..." />
+          <button type="submit" class="btn btn-primary btn-sm glow-cyan">
+            <span>Ask Copilot</span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
           </button>
         </div>

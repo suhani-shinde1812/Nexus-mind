@@ -283,6 +283,10 @@ export class RolePortals {
   // 3. PROJECT MANAGER PORTAL
   // --------------------------------------------------------------------------
   renderProjectManagerPortal(state) {
+    const activeProjects = state.projects || [];
+    const activeProjectsCount = activeProjects.length;
+    const projectNames = activeProjectsCount > 0 ? activeProjects.map(p => p.name).join(', ') : 'No active projects';
+
     this.container.innerHTML = `
       <div class="dashboard-grid">
         <div class="stat-card">
@@ -293,29 +297,29 @@ export class RolePortals {
         <div class="stat-card">
           <span class="stat-card-title">PREDICTED SLA DELAY</span>
           <span class="stat-card-value">${state.sprintForecast.expectedDelayDays} Days</span>
-          <span class="stat-card-trend warn">⚠️ Critical Path on Sprint Alpha</span>
+          <span class="stat-card-trend warn">⚠️ Critical Path Delivery Risk</span>
         </div>
         <div class="stat-card">
           <span class="stat-card-title">ACTIVE PROJECTS</span>
-          <span class="stat-card-value">${state.projects.length}</span>
-          <span class="stat-card-trend up">Cloud, Mobile, Security</span>
+          <span class="stat-card-value">${activeProjectsCount}</span>
+          <span class="stat-card-trend ${activeProjectsCount > 0 ? 'up' : ''}">${projectNames}</span>
         </div>
       </div>
 
       <div style="margin-bottom: 20px;">
         <h3 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 10px;">🚀 Sprint Planning & Delivery Trajectory</h3>
-        ${state.projects.map(p => `
+        ${activeProjectsCount > 0 ? activeProjects.map(p => `
           <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 10px;">
             <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700;">
               <span>${p.name}</span>
               <span style="color: var(--cyan-primary);">${p.progress}% Completed</span>
             </div>
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">Lead: ${p.lead} • Target Deadline: ${p.deadline}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">Lead: ${p.lead || 'Unassigned'} • Target Deadline: ${p.deadline || 'Unset'}</div>
             <div style="background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; margin-top: 8px; overflow: hidden;">
               <div style="width: ${p.progress}%; height: 100%; background: linear-gradient(90deg, var(--cyan-primary), var(--purple-primary));"></div>
             </div>
           </div>
-        `).join('')}
+        `).join('') : '<p class="text-muted" style="font-size: 0.825rem; padding: 12px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px;">No active projects in organization.</p>'}
       </div>
 
       <div style="background: rgba(127,0,255,0.08); border: 1px solid var(--purple-primary); border-radius: 12px; padding: 16px;">
@@ -453,62 +457,144 @@ export class RolePortals {
   // 6. AUTONOMOUS AI SWARM TAB
   // --------------------------------------------------------------------------
   renderAgentsTab(state) {
-    const report = monitoringAgent.analyzeGraphRisks();
+    const agentsDef = [
+      {
+        id: 'pm',
+        name: 'Project Manager Agent',
+        icon: '📊',
+        role: 'Sprint Delivery Forecasting, Milestone Tracking & Critical Path Analysis',
+        tools: ['get_projects', 'get_project_summary', 'get_task_status', 'get_task_deadline', 'get_completed_tasks'],
+        defaultAction: 'Sprint Forecasting',
+        defaultTool: 'get_projects',
+        defaultMsg: 'Monitors sprint delivery trajectories and active project milestones.'
+      },
+      {
+        id: 'dev',
+        name: 'Developer Agent',
+        icon: '💻',
+        role: 'Task Assignment, Dependencies, Technical Decomposition & Blockers',
+        tools: ['get_assignee', 'get_task_dependencies', 'search_tasks', 'get_in_progress_tasks'],
+        defaultAction: 'Dependency Verification',
+        defaultTool: 'get_task_dependencies',
+        defaultMsg: 'Indexed DAG node graph with verified prerequisite linkages.'
+      },
+      {
+        id: 'security',
+        name: 'Security Agent',
+        icon: '🛡️',
+        role: 'Policy Auditing, Threat Radar, Anomaly Detection & Session Security',
+        tools: ['audit_policy', 'detect_anomalies', 'get_threat_radar'],
+        defaultAction: 'Policy Auditing',
+        defaultTool: 'audit_policy',
+        defaultMsg: 'Verified RBAC session security and enterprise auth token hygiene.'
+      },
+      {
+        id: 'knowledge',
+        name: 'Knowledge Agent',
+        icon: '📚',
+        role: 'Grounded Document Retrieval, Architecture Specs & SOP Citations',
+        tools: ['rag_search', 'get_citations', 'summarize_doc'],
+        defaultAction: 'RAG Search',
+        defaultTool: 'rag_search',
+        defaultMsg: 'Knowledge retrieval embeddings active. Grounded source citations ready.'
+      },
+      {
+        id: 'analytics',
+        name: 'Analytics Agent',
+        icon: '📈',
+        role: 'Workload Balancing, Employee Headcount, Capacity & ML Risk Telemetry',
+        tools: ['count_organization_members', 'get_organization_members', 'get_team_capacity', 'get_project_risk'],
+        defaultAction: 'Capacity Telemetry',
+        defaultTool: 'get_team_capacity',
+        defaultMsg: 'Audited organization capacity load leveling and employee headcount.'
+      }
+    ];
+
+    const logs = state.agentSwarmLogs || [];
 
     this.container.innerHTML = `
-      <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; flex-direction: column; gap: 18px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="font-size: 1rem; color: #fff; font-weight: 700;">🤖 Autonomous AI Agent Swarm</h3>
+          <div>
+            <h3 style="font-size: 1.05rem; color: #fff; font-weight: 800;">🤖 Autonomous AI Swarm Intelligence</h3>
+            <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">Active Multi-Agent Network • Real-time DB Scans & Controlled Tool Execution</p>
+          </div>
           <button class="btn btn-gradient btn-xs glow-cyan" id="btnSwarmRescan">⚡ Trigger Swarm Scan</button>
         </div>
 
-        <!-- 3 Core Agents Grid -->
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
-          <!-- Agent 1 -->
-          <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-              <span style="font-size: 1.3rem;">🤖</span>
-              <span class="task-status-pill done">Active</span>
-            </div>
-            <h4 style="font-size: 0.85rem; color: #fff; font-weight: 700;">1. AI Monitoring Agent</h4>
-            <p style="font-size: 0.725rem; color: var(--text-secondary); margin-top: 4px;">Topological sort, critical path calculation, and SLA risk halos.</p>
-          </div>
+        <!-- 5 Swarm Agents Grid -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+          ${agentsDef.map(agent => {
+            const latestLog = logs.find(l =>
+              (l.agent && l.agent.toLowerCase().includes(agent.id)) ||
+              (l.agent && l.agent.toLowerCase().includes(agent.name.toLowerCase().split(' ')[0]))
+            ) || {
+              action: agent.defaultAction,
+              tool: agent.defaultTool,
+              message: agent.defaultMsg,
+              status: 'Active',
+              time: 'Active'
+            };
 
-          <!-- Agent 2 -->
-          <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-              <span style="font-size: 1.3rem;">💡</span>
-              <span class="task-status-pill in_progress">Co-Pilot</span>
-            </div>
-            <h4 style="font-size: 0.85rem; color: #fff; font-weight: 700;">2. AI Assistant Agent</h4>
-            <p style="font-size: 0.725rem; color: var(--text-secondary); margin-top: 4px;">Generative subtask decomposition, sprint briefings, graph queries.</p>
-          </div>
+            const toolExecuted = latestLog.tool || latestLog.action || agent.defaultTool;
+            const statusClass = (latestLog.status || 'Active').toLowerCase();
 
-          <!-- Agent 3 -->
-          <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-              <span style="font-size: 1.3rem;">⚖️</span>
-              <span class="task-status-pill done">Optimizer</span>
-            </div>
-            <h4 style="font-size: 0.85rem; color: #fff; font-weight: 700;">3. Workload Rebalancer</h4>
-            <p style="font-size: 0.725rem; color: var(--text-secondary); margin-top: 4px;">Skill vector cosine similarity & capacity load leveling.</p>
-          </div>
+            return `
+              <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span style="font-size: 1.25rem;">${agent.icon}</span>
+                      <h4 style="font-size: 0.85rem; color: #fff; font-weight: 700;">${agent.name}</h4>
+                    </div>
+                    <span class="task-status-pill ${statusClass === 'active' || statusClass === 'ready' ? 'done' : 'in_progress'}">${latestLog.status || 'Active'}</span>
+                  </div>
+                  <p style="font-size: 0.725rem; color: var(--text-secondary); line-height: 1.35; margin-bottom: 10px;">${agent.role}</p>
+                </div>
+
+                <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 8px 10px; font-size: 0.725rem;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="color: var(--text-muted);">Last Action:</span>
+                    <strong style="color: var(--cyan-primary);">${latestLog.action}</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="color: var(--text-muted);">Tool Executed:</span>
+                    <code style="background: rgba(0,242,254,0.1); color: var(--cyan-primary); padding: 1px 4px; border-radius: 3px; font-size: 0.68rem;">${toolExecuted}</code>
+                  </div>
+                  <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); color: var(--text-secondary);">
+                    ${latestLog.message}
+                  </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 0.68rem; color: var(--text-muted);">
+                  <span>Permitted: ${agent.tools.slice(0, 2).join(', ')}...</span>
+                  <span>${latestLog.time || 'Live'}</span>
+                </div>
+              </div>
+            `;
+          }).join('')}
         </div>
 
         <!-- Real-Time Agent Reasoning Stream -->
         <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px;">
-          <h4 style="font-size: 0.85rem; color: var(--cyan-primary); font-weight: 700; margin-bottom: 12px;">⚡ Live Agent Swarm Reasoning Stream</h4>
-          <div style="display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto;">
-            ${state.agentSwarmLogs.map(log => `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h4 style="font-size: 0.85rem; color: var(--cyan-primary); font-weight: 700;">⚡ Live Agent Swarm Reasoning Stream</h4>
+            <span style="font-size: 0.7rem; color: var(--text-muted);">${logs.length} operations recorded</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto;">
+            ${logs.length > 0 ? logs.map(log => `
               <div style="display: flex; justify-content: space-between; align-items: flex-start; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; padding: 8px 12px;">
                 <div>
-                  <span style="font-size: 0.75rem; font-weight: 700; color: #fff;">${log.agent}</span>
-                  <span style="font-size: 0.65rem; color: var(--cyan-primary); margin-left: 6px;">[${log.action}]</span>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 0.75rem; font-weight: 700; color: #fff;">${log.agent}</span>
+                    <span style="font-size: 0.65rem; color: var(--cyan-primary);">[${log.action}]</span>
+                    ${log.tool ? `<code style="font-size: 0.62rem; background: rgba(0,242,254,0.1); color: var(--cyan-primary); padding: 1px 3px; border-radius: 2px;">tool: ${log.tool}</code>` : ''}
+                  </div>
                   <div style="font-size: 0.725rem; color: var(--text-secondary); margin-top: 2px;">${log.message}</div>
                 </div>
-                <span style="font-size: 0.65rem; color: var(--text-muted);">${log.time}</span>
+                <span style="font-size: 0.65rem; color: var(--text-muted); white-space: nowrap; margin-left: 10px;">${log.time}</span>
               </div>
-            `).join('')}
+            `).join('') : '<p class="text-muted" style="font-size: 0.75rem;">No agent swarm events logged yet.</p>'}
           </div>
         </div>
       </div>

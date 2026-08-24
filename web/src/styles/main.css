@@ -839,77 +839,39 @@ body.theme-dark .graph-filter-group {
   cursor: pointer;
 }
 
-/* FOOTER AI AGENT HUD */
+/* FOOTER AI COPILOT LAUNCHER */
 .ai-hud-footer {
   height: var(--footer-height);
   padding: 0 24px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   background: var(--bg-surface);
   border-top: 1px solid var(--border-color);
   backdrop-filter: blur(20px);
   z-index: 90;
 }
 
-.ai-agent-pills {
-  display: flex;
-  gap: 14px;
-}
-
-.agent-pill {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(0, 0, 0, 0.04);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 6px 12px;
-}
-
-body.theme-dark .agent-pill {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.agent-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.85rem;
-}
-
-.agent-avatar.monitoring { background: rgba(239, 68, 68, 0.2); }
-.agent-avatar.assistant { background: rgba(0, 242, 254, 0.2); }
-.agent-avatar.search { background: rgba(127, 0, 255, 0.2); }
-
-.agent-name {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.agent-status {
-  font-size: 0.65rem;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-}
-
 .ai-prompt-form {
-  width: 480px;
+  width: 100%;
+  max-width: 780px;
 }
 
 .prompt-input-container {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   background: var(--bg-card);
   border: 1px solid var(--border-highlight);
   border-radius: 30px;
-  padding: 4px 6px 4px 14px;
-  box-shadow: 0 0 16px rgba(0, 242, 254, 0.12);
+  padding: 5px 8px 5px 16px;
+  box-shadow: 0 0 20px rgba(0, 242, 254, 0.12);
+  transition: all 0.25s ease;
+}
+
+.prompt-input-container:focus-within {
+  border-color: var(--cyan-primary);
+  box-shadow: 0 0 25px rgba(0, 242, 254, 0.25);
 }
 
 .prompt-input-container input {

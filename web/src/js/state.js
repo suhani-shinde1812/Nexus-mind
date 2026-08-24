@@ -77,9 +77,11 @@ class StateStore {
       activityLogs: isAuthed ? [] : [...SEEDED_ACTIVITY_LOGS],
       toasts: [],
       agentSwarmLogs: [
-        { agent: 'AI Monitoring Agent', action: 'Dependency Scan', status: 'Active', message: 'Calculated critical path for active graph nodes.', time: 'Just now' },
-        { agent: 'AI Assistant Agent', action: 'Model Initialization', status: 'Ready', message: 'Neural heuristic decomposition online. Context window: 100k tokens.', time: '1 min ago' },
-        { agent: 'AI Workload Rebalancer', action: 'Capacity Audit', status: 'Optimizing', message: 'Real-time workload optimization engine active.', time: '2 mins ago' }
+        { agent: 'Project Manager Agent', action: 'Sprint Forecasting', tool: 'get_projects', status: 'Active', message: 'Calculated critical path and delivery trajectory for active tasks.', time: 'Just now' },
+        { agent: 'Developer Agent', action: 'Dependency Mapping', tool: 'get_task_dependencies', status: 'Ready', message: 'Indexed DAG node graph with verified prerequisite linkages.', time: '1 min ago' },
+        { agent: 'Security Agent', action: 'Policy Audit', tool: 'audit_policy', status: 'Active', message: 'Verified RBAC session security and enterprise auth token hygiene.', time: '2 mins ago' },
+        { agent: 'Knowledge Agent', action: 'RAG Indexing', tool: 'rag_search', status: 'Ready', message: 'Knowledge retrieval embeddings active. Grounded source citations ready.', time: '3 mins ago' },
+        { agent: 'Analytics Agent', action: 'Capacity Audit', tool: 'get_team_capacity', status: 'Active', message: 'Real-time workload distribution and headcount telemetry active.', time: '4 mins ago' }
       ],
       sprintForecast: {
         onTimeProbability: 84.5,
@@ -420,10 +422,10 @@ class StateStore {
   // ------------------------------------------------------------------
   // MULTI-AGENT SWARM LOGGING
   // ------------------------------------------------------------------
-  logSwarmActivity(agent, action, message, status = 'Active') {
-    const log = { agent, action, message, status, time: 'Just now' };
+  logSwarmActivity(agent, action, message, status = 'Active', tool = null, trace = null) {
+    const log = { agent, action, message, status, tool, trace, time: 'Just now' };
     this.state.agentSwarmLogs.unshift(log);
-    if (this.state.agentSwarmLogs.length > 20) this.state.agentSwarmLogs.pop();
+    if (this.state.agentSwarmLogs.length > 30) this.state.agentSwarmLogs.pop();
     this.notify();
   }
 
