@@ -124,13 +124,13 @@ class AgentOrchestrator:
             "pm": {
                 "name": "Project Manager Agent",
                 "role": "Sprint delivery forecasting, milestone tracking, task status, and critical path analysis.",
-                "allowed_tools": ["get_projects", "get_project_summary", "get_task_status", "get_task_deadline", "get_completed_tasks"],
+                "allowed_tools": ["get_projects", "get_project_summary", "get_task_status", "get_task_deadline", "get_completed_tasks", "search_tasks"],
                 "required_permission": "task:read",
             },
             "dev": {
                 "name": "Developer Co-Pilot Agent",
                 "role": "Task assignment, dependencies, technical decomposition, and blocker resolution.",
-                "allowed_tools": ["get_assignee", "get_task_dependencies", "search_tasks", "get_in_progress_tasks"],
+                "allowed_tools": ["get_assignee", "get_task_dependencies", "search_tasks", "get_in_progress_tasks", "get_tasks_by_assignee"],
                 "required_permission": "task:read",
             },
             "security": {
@@ -148,7 +148,7 @@ class AgentOrchestrator:
             "analytics": {
                 "name": "Analytics & Workforce Agent",
                 "role": "Workload balancing, employee headcount, cosine talent matching, and risk analysis.",
-                "allowed_tools": ["count_organization_members", "get_team_capacity", "get_project_risk", "get_high_risk_tasks"],
+                "allowed_tools": ["count_organization_members", "get_organization_members", "get_team_capacity", "get_project_risk", "get_high_risk_tasks"],
                 "required_permission": "task:read",
             },
         }
@@ -159,7 +159,7 @@ class AgentOrchestrator:
         or resolve conversational follow-up references ('it', 'this task', 'the task').
         """
         # 1. Exact Task ID pattern (TASK-123 or task-123)
-        id_match = re.search(r"\b(TASK-\d+)\b", query, re.IGNORECASE)
+        id_match = re.search(r"\b(TASK-\d+|TASK-[A-Za-z0-9-]+)\b", query, re.IGNORECASE)
         if id_match:
             return id_match.group(1).upper()
 
@@ -186,13 +186,18 @@ class AgentOrchestrator:
         if cleaned.lower() in [
             "", "it", "this", "that", "the", "a", "all", "tasks", "blocked", "high risk", "overloaded",
             "completed", "finished", "done", "active", "in progress", "projects", "employees", "members",
+            "completed tasks", "active projects",
         ]:
             if user_id and user_id in self._session_contexts:
                 return self._session_contexts[user_id].get("task_id")
             return None
 
         # Ignore whole questions that are not entity names
-        if any(w in cleaned.lower() for w in ["how many", "which projects", "what projects", "who are", "list all", "show all"]):
+        if any(w in cleaned.lower() for w in [
+            "how many", "which projects", "what projects", "who are", "list all", "show all",
+            "which are", "what are", "show me", "which tasks", "what tasks", "completed tasks",
+            "working tasks", "finished tasks",
+        ]):
             return None
 
         return cleaned
@@ -203,10 +208,10 @@ class AgentOrchestrator:
         q_lower = query.lower()
         for u in users:
             first_name = u.name.split()[0].lower()
-            if len(first_name) >= 3 and first_name in q_lower:
-                return u
-            if u.name.lower() in q_lower:
-                return u
+            if len(first_name) >= 3 and (first_name in q_lower or u.name.lower() in q_lower):
+                # Ensure the name is not just matching common words
+                if first_name not in ["the", "all", "lead", "user", "admin"]:
+                    return u
         return None
 
     def route_query(self, query: str, user: models.User, db: Session) -> dict[str, Any]:
@@ -224,6 +229,7 @@ class AgentOrchestrator:
             "selected_agent": self.agents["pm"]["name"],
             "permission_check": "PASSED",
             "tools_executed": [],
+            "filters": {},
             "evidence": "",
             "proposal": None,
         }
@@ -325,7 +331,8 @@ class AgentOrchestrator:
         if any(w in q_lower for w in [
             "how many employees", "how many people", "number of employees", "number of team members",
             "how big is our organization", "how many members", "employee count", "headcount",
-            "employees in organization", "members in organization", "team size", "how many users"
+            "employees in organization", "employees are in organization", "members in organization",
+            "team size", "how many users", "how many staff", "employees do we have"
         ]):
             trace["intent"] = "ORGANIZATION_MEMBER_COUNT"
             trace["selected_agent"] = self.agents["analytics"]["name"]
@@ -355,7 +362,7 @@ class AgentOrchestrator:
         # ------------------------------------------------------------------
         # INTENT 5: Organization Member Listing
         # ------------------------------------------------------------------
-        if any(w in q_lower for w in ["who are the employees", "list team members", "who is in the organization", "show all members", "list all employees"]):
+        if any(w in q_lower for w in ["who are the employees", "list team members", "who is in the organization", "show all members", "list all employees", "who works here"]):
             trace["intent"] = "ORGANIZATION_MEMBERS"
             trace["selected_agent"] = self.agents["analytics"]["name"]
             trace["tools_executed"].append("get_organization_members")
@@ -384,11 +391,13 @@ class AgentOrchestrator:
         if any(w in q_lower for w in [
             "which projects are currently working", "what projects are active", "which projects are active",
             "show active projects", "active projects", "list projects", "which projects are running",
-            "projects are currently working", "projects in organization", "show all projects", "what are the projects"
+            "projects are currently working", "projects in organization", "show all projects", "what are the projects",
+            "which projects are currently active", "what projects do we have", "which projects are working", "show projects"
         ]):
             trace["intent"] = "ACTIVE_PROJECTS"
             trace["selected_agent"] = self.agents["pm"]["name"]
             trace["tools_executed"].append("get_projects")
+            trace["filters"] = {"status": "ACTIVE"}
 
             projects = agent_tools.get_projects(db, user, status="active")
             trace["evidence"] = f"Retrieved {len(projects)} active projects"
@@ -443,19 +452,23 @@ class AgentOrchestrator:
             }
 
         # ------------------------------------------------------------------
-        # INTENT 8: Completed Tasks Inquiry ("which is completed task?", "what tasks are done?")
+        # INTENT 8: Completed Tasks Inquiry
         # ------------------------------------------------------------------
         if any(w in q_lower for w in [
-            "which is completed task", "which tasks are completed", "what tasks are completed",
-            "what tasks are done", "show finished tasks", "what have we completed", "completed tasks",
-            "which task is completed", "completed work", "list completed tasks", "finished tasks"
+            "which are the completed tasks", "which are completed tasks", "which is completed task",
+            "which tasks are completed", "what tasks are completed", "what completed tasks do we have",
+            "what completed tasks", "what tasks are done", "which tasks are done", "show finished tasks",
+            "show me finished tasks", "what have we completed", "completed tasks", "which task is completed",
+            "completed work", "list completed tasks", "finished tasks", "done tasks", "tasks that are done",
+            "tasks that are completed"
         ]):
             trace["intent"] = "COMPLETED_TASKS"
             trace["selected_agent"] = self.agents["pm"]["name"]
-            trace["tools_executed"].append("get_completed_tasks")
+            trace["tools_executed"].append("search_tasks")
+            trace["filters"] = {"status": "COMPLETED"}
 
             done_tasks = agent_tools.get_completed_tasks(db, user)
-            trace["evidence"] = f"Retrieved {len(done_tasks)} completed tasks"
+            trace["evidence"] = f"{len(done_tasks)} completed tasks returned"
 
             if not done_tasks:
                 answer = "No completed tasks were found in your organization project graph."
@@ -473,15 +486,17 @@ class AgentOrchestrator:
             }
 
         # ------------------------------------------------------------------
-        # INTENT 9: In-Progress Tasks Inquiry ("which tasks are in progress?")
+        # INTENT 9: In-Progress Tasks Inquiry
         # ------------------------------------------------------------------
         if any(w in q_lower for w in [
             "which tasks are in progress", "what tasks are in progress", "what are the active tasks",
-            "what tasks are being worked on", "in progress tasks", "working tasks", "ongoing tasks"
+            "what tasks are being worked on", "in progress tasks", "working tasks", "ongoing tasks",
+            "active tasks", "tasks in progress", "tasks currently working"
         ]):
             trace["intent"] = "IN_PROGRESS_TASKS"
             trace["selected_agent"] = self.agents["dev"]["name"]
             trace["tools_executed"].append("get_in_progress_tasks")
+            trace["filters"] = {"status": "IN_PROGRESS"}
 
             in_prog = agent_tools.get_in_progress_tasks(db, user)
             trace["evidence"] = f"Retrieved {len(in_prog)} in-progress tasks"
@@ -508,6 +523,7 @@ class AgentOrchestrator:
             trace["intent"] = "BLOCKED_TASKS"
             trace["selected_agent"] = self.agents["pm"]["name"]
             trace["tools_executed"].append("get_blocked_tasks")
+            trace["filters"] = {"status": "BLOCKED"}
 
             blocked_tasks = agent_tools.get_blocked_tasks(db, user)
             trace["evidence"] = f"Found {len(blocked_tasks)} blocked / high risk tasks"
@@ -530,7 +546,7 @@ class AgentOrchestrator:
         # ------------------------------------------------------------------
         # INTENT 11: Team Workload, Capacity & Overload Inquiries
         # ------------------------------------------------------------------
-        if any(w in q_lower for w in ["who is overloaded", "who has bandwidth", "who is available", "most workload", "team capacity", "workload report"]):
+        if any(w in q_lower for w in ["who is overloaded", "who has bandwidth", "who is available", "most workload", "team capacity", "workload report", "who is free"]):
             trace["intent"] = "TEAM_WORKLOAD"
             trace["selected_agent"] = self.agents["analytics"]["name"]
             trace["tools_executed"].append("get_team_capacity")
@@ -628,10 +644,10 @@ class AgentOrchestrator:
         task_entity = self._extract_task_entity(q_clean, user.id)
 
         # 14A. TASK ASSIGNEE: "Who is working on Authentication?" / "Who is assigned to TASK-102?"
-        if any(w in q_lower for w in ["who is working", "who is assigned", "who is handling", "who has", "owner of", "assignee of"]) or (task_entity and q_lower.startswith("who ")):
+        if any(w in q_lower for w in ["who is working", "who is assigned", "who is handling", "who has", "owner of", "assignee of", "who works on"]) or (task_entity and q_lower.startswith("who ")):
             trace["intent"] = "TASK_ASSIGNEE"
             trace["selected_agent"] = self.agents["dev"]["name"]
-            trace["tools_executed"].append("get_assignee")
+            trace["tools_executed"].extend(["search_tasks", "get_assignee"])
 
             if not task_entity:
                 return self._fallback_general_response(trace)

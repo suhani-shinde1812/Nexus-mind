@@ -154,19 +154,40 @@ def test_ai_agent_expanded_taxonomy():
     print("[PASS] Verified ORGANIZATION_MEMBER_COUNT intent returned real employee count (3)")
 
     # =========================================================================
-    # 3. QUESTION: "which is completed task?" -> COMPLETED_TASKS
+    # 3. QUESTION: "which are the completed tasks?" / "which is completed task?" -> COMPLETED_TASKS
     # =========================================================================
-    print("\n[TEST 4] Query: 'which is completed task?'...")
+    print("\n[TEST 4] Query: 'which are the completed tasks?'...")
     q3_resp = client.post("/api/ai/query", json={
-        "query": "which is completed task?"
+        "query": "which are the completed tasks?"
     }, headers=headers_a)
     assert q3_resp.status_code == 200
     q3 = q3_resp.json()
     print(f"AI Answer: {q3['answer']}")
     assert q3["decision_trace"]["intent"] == "COMPLETED_TASKS"
-    assert "get_completed_tasks" in q3["decision_trace"]["tools_executed"]
+    assert "search_tasks" in q3["decision_trace"]["tools_executed"]
     assert f"Database Migration Completed {suffix}" in q3["answer"]
-    print("[PASS] Verified COMPLETED_TASKS intent returned real finished tasks")
+    print("[PASS] Verified 'which are the completed tasks?' routed to COMPLETED_TASKS and returned real finished tasks")
+
+    print("\n[TEST 4B] Query: 'what completed tasks do we have?'...")
+    q3b_resp = client.post("/api/ai/query", json={
+        "query": "what completed tasks do we have?"
+    }, headers=headers_a)
+    assert q3b_resp.status_code == 200
+    q3b = q3b_resp.json()
+    assert q3b["decision_trace"]["intent"] == "COMPLETED_TASKS"
+    assert f"Database Migration Completed {suffix}" in q3b["answer"]
+    print("[PASS] Verified 'what completed tasks do we have?' routed to COMPLETED_TASKS")
+
+    print("\n[TEST 4C] Query: 'show me finished tasks'...")
+    q3c_resp = client.post("/api/ai/query", json={
+        "query": "show me finished tasks"
+    }, headers=headers_a)
+    assert q3c_resp.status_code == 200
+    q3c = q3c_resp.json()
+    assert q3c["decision_trace"]["intent"] == "COMPLETED_TASKS"
+    assert f"Database Migration Completed {suffix}" in q3c["answer"]
+    print("[PASS] Verified 'show me finished tasks' routed to COMPLETED_TASKS")
+
 
     # =========================================================================
     # 4. QUESTION: "which tasks are in progress?" -> IN_PROGRESS_TASKS
