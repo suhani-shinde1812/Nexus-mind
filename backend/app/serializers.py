@@ -64,3 +64,24 @@ def meeting_to_dict(meeting: models.Meeting) -> dict:
         "status": meeting.status,
         "link": meeting.link,
     }
+
+
+def project_to_dict(project: models.Project) -> dict:
+    tasks = project.tasks or []
+    total = len(tasks)
+    done = len([t for t in tasks if t.status == "done"])
+    blocked = len([t for t in tasks if t.status == "blocked"])
+    in_prog = len([t for t in tasks if t.status == "in_progress"])
+    progress = int((done / total * 100)) if total > 0 else (project.progress or 0)
+    return {
+        "id": project.id,
+        "name": project.name,
+        "lead": project.lead,
+        "deadline": project.deadline,
+        "progress": progress,
+        "totalTasks": total,
+        "doneTasks": done,
+        "inProgressTasks": in_prog,
+        "blockedTasks": blocked,
+        "status": "completed" if total > 0 and done == total else "active",
+    }

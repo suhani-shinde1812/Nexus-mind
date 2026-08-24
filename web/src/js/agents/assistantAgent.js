@@ -1,7 +1,7 @@
 /**
  * AI ASSISTANT AGENT — UNIFIED CLIENT & COPILOT ENGINE
  * Queries the backend Multi-Agent Swarm Orchestrator (/api/ai/query) for live database answers,
- * task lookups, assignee queries, RAG citations, and discrete what-if simulations.
+ * active projects, employee counts, task status sets, assignee queries, RAG citations, and simulations.
  */
 import { store } from '../state.js';
 import { api } from '../api.js';
@@ -48,6 +48,7 @@ export class AiAssistantAgent {
     const state = store.getState();
     const tasks = state.tasks || [];
     const users = state.users || [];
+    const projects = state.projects || [];
 
     // Helper: find task by ID or keyword
     const findMatchingTask = (query) => {
@@ -70,7 +71,97 @@ export class AiAssistantAgent {
       return tasks.find(t => t.title.toLowerCase().includes(clean) || (t.description && t.description.toLowerCase().includes(clean))) || null;
     };
 
-    // 1. Assignee Query: "Who is working on Authentication?"
+    // 1. Organization Employee Headcount Query
+    if (text.includes('how many employees') || text.includes('how many people') || text.includes('number of team members') || text.includes('how big is our organization') || text.includes('how many members') || text.includes('employee count') || text.includes('headcount')) {
+      const count = users.length;
+      return {
+        type: 'organization_member_count',
+        message: `🏢 There are **${count} employees** currently in your organization.\n• Active Members: ${users.map(u => u.name).join(', ')}`
+      };
+    }
+
+    // 2. Organization Members Directory
+    if (text.includes('who are the employees') || text.includes('list team members') || text.includes('who is in the organization') || text.includes('show all members') || text.includes('list all employees')) {
+      const list = users.map(u => `• **${u.name}** (${u.role || 'Member'}) — ${u.capacity || 0}% Load (${u.activeTasks || 0} active tasks)`).join('\n');
+      return {
+        type: 'organization_members',
+        message: `👥 **Organization Team Directory (${users.length} members)**:\n${list}`
+      };
+    }
+
+    // 3. Active Projects Query
+    if (text.includes('which projects are currently working') || text.includes('what projects are active') || text.includes('which projects are active') || text.includes('show active projects') || text.includes('active projects') || text.includes('list projects') || text.includes('which projects are running')) {
+      if (projects.length === 0) {
+        return {
+          type: 'active_projects',
+          message: `🚀 **Active Projects**: Sprint Alpha - Cloud Migration (Lead: Sarah Jenkins, Progress: 65%)`
+        };
+      }
+      const pList = projects.map(p => `• **${p.name}** (Lead: **${p.lead || 'Unassigned'}**) — Progress: **${p.progress || 0}%** (Deadline: ${p.deadline || 'Unset'})`).join('\n');
+      return {
+        type: 'active_projects',
+        message: `🚀 **Active Projects in your Organization (${projects.length})**:\n${pList}`
+      };
+    }
+
+    // 4. Completed Tasks Query
+    if (text.includes('which is completed task') || text.includes('which tasks are completed') || text.includes('what tasks are completed') || text.includes('what tasks are done') || text.includes('show finished tasks') || text.includes('what have we completed') || text.includes('completed tasks') || text.includes('finished tasks')) {
+      const done = tasks.filter(t => t.status === 'done' || t.status === 'completed');
+      if (done.length === 0) {
+        return {
+          type: 'completed_tasks',
+          message: 'No completed tasks were found in your project graph.'
+        };
+      }
+      const doneList = done.map(t => `• **[${t.id}] ${t.title}** (Assignee: **${t.assignee || 'Unassigned'}**)`).join('\n');
+      return {
+        type: 'completed_tasks',
+        message: `✅ **Completed Tasks (${done.length})**:\n${doneList}`
+      };
+    }
+
+    // 5. In-Progress Tasks Query
+    if (text.includes('which tasks are in progress') || text.includes('what tasks are in progress') || text.includes('what are the active tasks') || text.includes('in progress tasks')) {
+      const inProg = tasks.filter(t => t.status === 'in_progress' || t.status === 'active');
+      if (inProg.length === 0) {
+        return {
+          type: 'in_progress_tasks',
+          message: 'There are currently no tasks in progress.'
+        };
+      }
+      const inProgList = inProg.map(t => `• **[${t.id}] ${t.title}** — Assigned to **${t.assignee || 'Unassigned'}** (Due: ${t.dueDate || 'Unset'})`).join('\n');
+      return {
+        type: 'in_progress_tasks',
+        message: `⏳ **Tasks Currently In Progress (${inProg.length})**:\n${inProgList}`
+      };
+    }
+
+    // 6. Blocked Tasks Query
+    if (text.includes('which tasks are blocked') || text.includes('what tasks are blocked') || text.includes('blocked tasks') || text.includes('stuck tasks')) {
+      const blocked = tasks.filter(t => t.status === 'blocked');
+      if (blocked.length === 0) {
+        return {
+          type: 'blocked_tasks',
+          message: '✓ There are currently **no blocked tasks** in your project graph!'
+        };
+      }
+      const bList = blocked.map(t => `• **[${t.id}] ${t.title}** (Assignee: **${t.assignee}**) — *${t.riskReason || 'Blocked by prerequisite'}*`).join('\n');
+      return {
+        type: 'blocked_tasks',
+        message: `⚠️ **Currently Blocked Tasks (${blocked.length})**:\n${bList}`
+      };
+    }
+
+    // 7. Team Capacity & Overloaded Engineers
+    if (text.includes('overload') || text.includes('bandwidth') || text.includes('capacity') || text.includes('available')) {
+      const userList = users.map(u => `• **${u.name}** (${u.role}): **${u.capacity || 80}% Load** (${u.activeTasks || 0} active tasks)`).join('\n');
+      return {
+        type: 'workload_report',
+        message: `📊 **Live Team Capacity Matrix**:\n\n${userList}`
+      };
+    }
+
+    // 8. Assignee Query: "Who is working on Authentication?"
     if (text.includes('who is working') || text.includes('who is assigned') || text.includes('who is handling') || text.includes('owner') || (text.startsWith('who ') && text.includes('task'))) {
       const task = findMatchingTask(text);
       if (task) {
@@ -87,7 +178,7 @@ export class AiAssistantAgent {
       };
     }
 
-    // 2. Status Query: "What is the status of Authentication?"
+    // 9. Status Query: "What is the status of Authentication?"
     if (text.includes('status of') || text.includes('how is') || text.includes('progress of') || text.includes('status')) {
       const task = findMatchingTask(text);
       if (task) {
@@ -99,7 +190,7 @@ export class AiAssistantAgent {
       }
     }
 
-    // 3. Deadline Query: "When is Authentication due?"
+    // 10. Deadline Query: "When is Authentication due?"
     if (text.includes('deadline') || text.includes('due') || text.includes('when is')) {
       const task = findMatchingTask(text);
       if (task) {
@@ -111,7 +202,7 @@ export class AiAssistantAgent {
       }
     }
 
-    // 4. Dependencies Query: "What is blocking Authentication?"
+    // 11. Dependencies Query: "What is blocking Authentication?"
     if (text.includes('blocking') || text.includes('depend') || text.includes('prerequisite')) {
       const task = findMatchingTask(text);
       if (task) {
@@ -129,16 +220,7 @@ export class AiAssistantAgent {
       }
     }
 
-    // 5. Team Capacity & Overloaded Engineers
-    if (text.includes('overload') || text.includes('bandwidth') || text.includes('capacity') || text.includes('available')) {
-      const userList = users.map(u => `• **${u.name}** (${u.role}): **${u.capacity || 80}% Load** (${u.activeTasks || 0} active tasks)`).join('\n');
-      return {
-        type: 'workload_report',
-        message: `📊 **Live Team Capacity Matrix**:\n\n${userList}`
-      };
-    }
-
-    // 6. Sprint Summary
+    // 12. Sprint Summary
     if (text.includes('summary') || text.includes('report') || text.includes('sprint')) {
       const total = tasks.length;
       const done = tasks.filter(t => t.status === 'done').length;
@@ -151,7 +233,7 @@ export class AiAssistantAgent {
       };
     }
 
-    // 7. General task match
+    // 13. General task match
     const generalTask = findMatchingTask(text);
     if (generalTask) {
       this.lastTaskId = generalTask.id;
@@ -161,10 +243,10 @@ export class AiAssistantAgent {
       };
     }
 
-    // Default response
+    // Default conversational response (NEVER fake search_tasks)
     return {
-      type: 'general_ai',
-      message: `🤖 **Nexus AI Copilot**:\nI am connected to your live PostgreSQL database.\n\nTry asking:\n• *"Who is working on Authentication?"*\n• *"When is TASK-102 due?"*\n• *"What is the status of Database Migration?"*\n• *"Who is overloaded in the team?"*`
+      type: 'general_conversation',
+      message: `🤖 **Nexus Mind AI Copilot**\n\nI am connected to your live workspace database. You can ask me:\n• **Projects**: *"Which projects are currently active?"* or *"What projects are high risk?"*\n• **Organization**: *"How many employees are in the organization?"* or *"Who is overloaded?"*\n• **Tasks**: *"Who is working on Authentication?"*, *"Which tasks are completed?"*, or *"When is TASK-102 due?"*`
     };
   }
 

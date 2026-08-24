@@ -13,11 +13,11 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app import models
-from app.serializers import task_to_dict, user_to_dict
+from app.serializers import project_to_dict, task_to_dict, user_to_dict
 
 
 def _get_org_tasks_query(db: Session, current_user: models.User):
-    """Base query ensuring multi-tenant organization boundaries."""
+    """Base query ensuring multi-tenant organization boundaries for tasks."""
     query = db.query(models.Task)
     if current_user.org_id:
         query = query.filter((models.Task.org_id == current_user.org_id) | (models.Task.org_id == None))
@@ -30,6 +30,241 @@ def _get_org_users_query(db: Session, current_user: models.User):
     if current_user.org_id:
         query = query.filter((models.User.org_id == current_user.org_id) | (models.User.org_id == None))
     return query
+
+
+def _get_org_projects_query(db: Session, current_user: models.User):
+    """Base query ensuring organization boundaries for projects."""
+    query = db.query(models.Project)
+    if current_user.org_id:
+        query = query.filter((models.Project.org_id == current_user.org_id) | (models.Project.org_id == None))
+    return query
+
+
+# =========================================================================
+# 1. PROJECT TOOLS
+# =========================================================================
+
+def get_projects(
+    db: Session,
+    current_user: models.User,
+    status: str | None = None,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """
+    Retrieve authorized projects for the current organization, optionally filtered by status (active/completed).
+    """
+    query = _get_org_projects_query(db, current_user)
+    projects = query.order_by(models.Project.created_at.desc()).limit(limit).all()
+    results = [project_to_dict(p) for p in projects]
+
+    if status:
+        st_lower = status.lower()
+        if st_lower in ["active", "in_progress", "working"]:
+            results = [p for p in results if p["status"] == "active" or p["progress"] < 100]
+        elif st_lower in ["completed", "done", "finished"]:
+            results = [p for p in results if p["status"] == "completed" or p["progress"] == 100]
+
+    return results
+
+
+def get_project(
+    db: Session,
+    project_identifier: str,
+    current_user: models.User,
+) -> dict[str, Any] | None:
+    """Retrieve single project by ID or closest matching name."""
+    clean = project_identifier.strip()
+    if not clean:
+        return None
+
+    query = _get_org_projects_query(db, current_user)
+    p = query.filter(
+        (models.Project.id == clean) | (models.Project.name.ilike(f"%{clean}%"))
+    ).first()
+
+    return project_to_dict(p) if p else None
+
+
+def get_project_risk(
+    db: Session,
+    current_user: models.User,
+    project_id: str | None = None,
+) -> dict[str, Any]:
+    """Retrieve risk telemetry and delayed task bottlenecks across organization projects."""
+    projects = get_projects(db, current_user, status="active")
+    tasks_query = _get_org_tasks_query(db, current_user)
+
+    if project_id:
+        tasks_query = tasks_query.filter(models.Task.project_id == project_id)
+
+    all_tasks = tasks_query.all()
+    high_risk_tasks = [task_to_dict(t) for t in all_tasks if t.ai_risk_score >= 0.5 or t.priority == "Critical"]
+    blocked_tasks = [task_to_dict(t) for t in all_tasks if t.status == "blocked"]
+
+    # Calculate overall risk score
+    avg_risk = sum(t.ai_risk_score for t in all_tasks) / len(all_tasks) if all_tasks else 0.1
+    risk_level = "CRITICAL" if avg_risk >= 0.6 else ("HIGH" if avg_risk >= 0.4 else "MODERATE")
+
+    return {
+        "active_projects_count": len(projects),
+        "total_tasks_monitored": len(all_tasks),
+        "high_risk_tasks_count": len(high_risk_tasks),
+        "blocked_tasks_count": len(blocked_tasks),
+        "overall_risk_score": round(avg_risk, 2),
+        "risk_level": risk_level,
+        "high_risk_tasks": high_risk_tasks[:5],
+        "blocked_tasks": blocked_tasks[:5],
+    }
+
+
+# =========================================================================
+# 2. ORGANIZATION & TEAM TOOLS
+# =========================================================================
+
+def count_organization_members(db: Session, current_user: models.User) -> dict[str, Any]:
+    """
+    Count total members in current authenticated organization and return role breakdown.
+    """
+    users_query = _get_org_users_query(db, current_user)
+    users = users_query.all()
+    total_count = len(users)
+
+    org_name = "Default Organization"
+    if current_user.org_id:
+        org = db.get(models.Organization, current_user.org_id)
+        if org:
+            org_name = org.name
+
+    roles: dict[str, int] = {}
+    for u in users:
+        r = u.role or "Team Member"
+        roles[r] = roles.get(r, 0) + 1
+
+    return {
+        "count": total_count,
+        "organization_id": current_user.org_id,
+        "organization_name": org_name,
+        "roles_breakdown": roles,
+    }
+
+
+def get_organization_members(
+    db: Session,
+    current_user: models.User,
+    role: str | None = None,
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    """Retrieve list of employees in authorized organization."""
+    query = _get_org_users_query(db, current_user)
+    if role:
+        query = query.filter(models.User.role.ilike(f"%{role}%"))
+    users = query.limit(limit).all()
+    return [user_to_dict(u) for u in users]
+
+
+def get_team_capacity(db: Session, current_user: models.User) -> dict[str, Any]:
+    """Retrieve live team workload capacity, identifying overloaded and available engineers."""
+    users = _get_org_users_query(db, current_user).all()
+    user_list = [user_to_dict(u) for u in users]
+
+    overloaded = [u for u in user_list if u.get("capacity", 0) >= 90 or u.get("active_tasks", 0) >= 4]
+    available = [u for u in user_list if u.get("capacity", 0) <= 60]
+
+    return {
+        "total_members": len(user_list),
+        "members": user_list,
+        "overloaded_members": overloaded,
+        "available_members": available,
+    }
+
+
+def get_team_workload(db: Session, current_user: models.User) -> dict[str, Any]:
+    """Detailed workload metrics across organization engineers."""
+    return get_team_capacity(db, current_user)
+
+
+# =========================================================================
+# 3. TASK STATUS SET TOOLS (Completed, In-Progress, Blocked, High-Risk)
+# =========================================================================
+
+def get_completed_tasks(
+    db: Session,
+    current_user: models.User,
+    project_id: str | None = None,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Retrieve tasks with status == 'done' or 'completed' in authorized organization."""
+    query = _get_org_tasks_query(db, current_user).filter(
+        or_(models.Task.status == "done", models.Task.status == "completed")
+    )
+    if project_id:
+        query = query.filter(models.Task.project_id == project_id)
+    tasks = query.order_by(models.Task.id.desc()).limit(limit).all()
+    return [task_to_dict(t) for t in tasks]
+
+
+def get_in_progress_tasks(
+    db: Session,
+    current_user: models.User,
+    project_id: str | None = None,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Retrieve tasks with status == 'in_progress' or 'active' in authorized organization."""
+    query = _get_org_tasks_query(db, current_user).filter(
+        or_(models.Task.status == "in_progress", models.Task.status == "active")
+    )
+    if project_id:
+        query = query.filter(models.Task.project_id == project_id)
+    tasks = query.order_by(models.Task.id.desc()).limit(limit).all()
+    return [task_to_dict(t) for t in tasks]
+
+
+def get_blocked_tasks(
+    db: Session,
+    current_user: models.User,
+    project_id: str | None = None,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Retrieve all blocked tasks across the organization or within a project."""
+    query = _get_org_tasks_query(db, current_user).filter(
+        or_(models.Task.status == "blocked", models.Task.ai_risk_score >= 0.7)
+    )
+    if project_id:
+        query = query.filter(models.Task.project_id == project_id)
+    tasks = query.order_by(models.Task.id.desc()).limit(limit).all()
+    return [task_to_dict(t) for t in tasks]
+
+
+def get_high_risk_tasks(
+    db: Session,
+    current_user: models.User,
+    project_id: str | None = None,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Retrieve tasks with high AI delay probability or critical priority."""
+    query = _get_org_tasks_query(db, current_user).filter(
+        or_(models.Task.ai_risk_score >= 0.55, models.Task.priority == "Critical")
+    )
+    if project_id:
+        query = query.filter(models.Task.project_id == project_id)
+    tasks = query.order_by(models.Task.ai_risk_score.desc()).limit(limit).all()
+    return [task_to_dict(t) for t in tasks]
+
+
+# =========================================================================
+# 4. TASK SEARCH, ASSIGNEE, STATUS & DETAILS TOOLS
+# =========================================================================
+
+def _is_unambiguous_match(query: str, matches: list[dict[str, Any]]) -> bool:
+    if not matches:
+        return False
+    if len(matches) == 1:
+        return True
+    q = query.lower().strip()
+    top = matches[0]["title"].lower().strip()
+    if q == top or q in top or top in q:
+        return True
+    return False
 
 
 def search_tasks(
@@ -63,13 +298,19 @@ def search_tasks(
             return [task_to_dict(num_match)]
 
     # 2. Substring & Keyword Match
-    words = [w for w in re.split(r"\s+", q_clean) if len(w) > 2 and w.lower() not in ["the", "task", "feature", "working", "status", "deadline", "risk", "who", "what", "when", "is", "on", "for"]]
-    
+    words = [
+        w for w in re.split(r"\s+", q_clean)
+        if len(w) > 2 and w.lower() not in [
+            "the", "task", "feature", "working", "status", "deadline", "risk",
+            "who", "what", "when", "is", "on", "for", "which", "are", "currently",
+        ]
+    ]
+
     conditions = []
     # Match full clean phrase
     conditions.append(models.Task.title.ilike(f"%{q_clean}%"))
     conditions.append(models.Task.description.ilike(f"%{q_clean}%"))
-    
+
     # Match individual meaningful keywords
     for word in words:
         conditions.append(models.Task.title.ilike(f"%{word}%"))
@@ -105,7 +346,7 @@ def search_tasks(
         return score
 
     sorted_tasks = sorted(tasks, key=score_task, reverse=True)
-    return [task_to_dict(t) for t in sorted_tasks]
+    return [task_to_dict(t) for t in sorted_tasks[:limit]]
 
 
 def get_task(db: Session, task_identifier: str, current_user: models.User) -> dict[str, Any] | None:
@@ -196,19 +437,6 @@ def get_tasks_by_assignee(
     }
 
 
-def _is_unambiguous_match(query: str, matches: list[dict[str, Any]]) -> bool:
-    if not matches:
-        return False
-    if len(matches) == 1:
-        return True
-    q = query.lower().strip()
-    top = matches[0]["title"].lower().strip()
-    # If exact match or top is substring or query is substring of top
-    if q == top or q in top or top in q:
-        return True
-    return False
-
-
 def get_task_status(db: Session, task_identifier: str, current_user: models.User) -> dict[str, Any]:
     """Retrieve real-time execution status, priority, and progress of a task."""
     matches = search_tasks(db, task_identifier, current_user, limit=5)
@@ -260,7 +488,7 @@ def get_task_dependencies(db: Session, task_identifier: str, current_user: model
     is_single = _is_unambiguous_match(task_identifier, matches)
     task = matches[0]
     dep_ids = task.get("dependsOn", [])
-    
+
     # Prerequisites
     prereqs = []
     if dep_ids:
@@ -276,6 +504,8 @@ def get_task_dependencies(db: Session, task_identifier: str, current_user: model
 
     return {
         "found": True,
+        "multiple": not is_single,
+        "tasks": matches,
         "task": task,
         "prerequisites": prereqs,
         "downstream_dependents": downstream,
@@ -289,46 +519,20 @@ def get_task_risk(db: Session, task_identifier: str, current_user: models.User) 
     if not matches:
         return {"found": False, "message": f"Could not find task '{task_identifier}'."}
 
-    if len(matches) > 1 and matches[0]["title"].lower() != task_identifier.lower().strip():
-        return {"found": True, "multiple": True, "tasks": matches}
-
+    is_single = _is_unambiguous_match(task_identifier, matches)
     task = matches[0]
     score = task.get("aiRiskScore", 0.1)
     risk_level = "CRITICAL" if score >= 0.75 else ("HIGH" if score >= 0.55 else ("MEDIUM" if score >= 0.3 else "LOW"))
-    
+
     return {
         "found": True,
+        "multiple": not is_single,
+        "tasks": matches,
         "task": task,
         "risk_score": score,
         "risk_percentage": int(score * 100),
         "risk_level": risk_level,
         "risk_reason": task.get("riskReason") or "Operating within normal velocity parameters.",
-    }
-
-
-def get_blocked_tasks(db: Session, current_user: models.User, project_id: str | None = None) -> list[dict[str, Any]]:
-    """Retrieve all blocked tasks across the organization or within a project."""
-    query = _get_org_tasks_query(db, current_user).filter(
-        or_(models.Task.status == "blocked", models.Task.ai_risk_score >= 0.7)
-    )
-    if project_id:
-        query = query.filter(models.Task.project_id == project_id)
-    return [task_to_dict(t) for t in query.all()]
-
-
-def get_team_capacity(db: Session, current_user: models.User) -> dict[str, Any]:
-    """Retrieve live team workload capacity, identifying overloaded and available engineers."""
-    users = _get_org_users_query(db, current_user).all()
-    user_list = [user_to_dict(u) for u in users]
-    
-    overloaded = [u for u in user_list if u.get("capacity", 0) >= 90 or u.get("active_tasks", 0) >= 4]
-    available = [u for u in user_list if u.get("capacity", 0) <= 60]
-    
-    return {
-        "total_members": len(user_list),
-        "members": user_list,
-        "overloaded_members": overloaded,
-        "available_members": available,
     }
 
 
@@ -339,10 +543,8 @@ def get_project_summary(
     project_name: str | None = None,
 ) -> dict[str, Any]:
     """Retrieve project delivery summary, milestone completion, and on-time probabilities."""
-    p_query = db.query(models.Project)
-    if current_user.org_id:
-        p_query = p_query.filter((models.Project.org_id == current_user.org_id) | (models.Project.org_id == None))
-    
+    p_query = _get_org_projects_query(db, current_user)
+
     if project_id:
         project = p_query.filter(models.Project.id == project_id).first()
     elif project_name:
@@ -360,7 +562,7 @@ def get_project_summary(
     in_progress = len([t for t in tasks if t["status"] == "in_progress"])
     blocked = len([t for t in tasks if t["status"] == "blocked"])
     high_risk = len([t for t in tasks if t.get("aiRiskScore", 0) >= 0.6])
-    progress = int((done / total * 100)) if total > 0 else 0
+    progress = int((done / total * 100)) if total > 0 else (project.progress if project else 0)
 
     return {
         "project_name": project.name if project else "Active Sprint",
