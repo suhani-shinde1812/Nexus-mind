@@ -40,21 +40,31 @@ async def lifespan(app: FastAPI):
 
     # Connect with retries to tolerate cloud database cold-starts and DNS propagation
     max_retries = 5
+    db_connected = False
     for attempt in range(1, max_retries + 1):
         try:
             Base.metadata.create_all(bind=engine)
             logger.info("Database schema verified/created successfully.")
+            db_connected = True
             break
         except Exception as e:
-            if attempt == max_retries:
-                logger.error(f"Critical: Database connection failed after {max_retries} attempts: {e}")
-                raise
             wait_time = attempt * 2
             logger.warning(
                 f"Database connection attempt {attempt}/{max_retries} failed ({e}). "
                 f"Retrying in {wait_time}s..."
             )
             time.sleep(wait_time)
+
+    if not db_connected:
+        from app.database import fallback_to_sqlite
+        logger.error(
+            "Primary database connection failed after all retries. "
+            "Activating resilient SQLite fallback so the platform starts cleanly on Render..."
+        )
+        try:
+            fallback_to_sqlite()
+        except Exception as fb_err:
+            logger.error(f"Fallback database initialization error: {fb_err}")
 
     try:
         inspector = inspect(engine)

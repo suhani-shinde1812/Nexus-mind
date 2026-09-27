@@ -85,19 +85,45 @@ def normalize_database_url(url: str) -> str:
 
 db_url = normalize_database_url(settings.database_url)
 
-connect_args = {}
 if db_url.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
     engine = create_engine(db_url, connect_args=connect_args, future=True)
 else:
-    engine = create_engine(db_url, pool_pre_ping=True, pool_recycle=300, future=True)
+    connect_args = {
+        "sslmode": "require",
+        "connect_timeout": 10,
+        "keepalives": 1,
+        "keepalives_idle": 30,
+        "keepalives_interval": 10,
+        "keepalives_count": 5,
+    }
+    engine = create_engine(
+        db_url,
+        connect_args=connect_args,
+        pool_pre_ping=True,
+        pool_recycle=300,
+        future=True,
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
 
 
-
 class Base(DeclarativeBase):
     pass
+
+
+def fallback_to_sqlite():
+    """
+    Fallback mechanism if PostgreSQL is temporarily unreachable or blocked by cloud firewall.
+    Ensures the web application can boot up and serve requests without crashing.
+    """
+    global engine, db_url
+    logger.warning("[Database] Activating local SQLite fallback (./nexusmind.db) so the platform starts successfully...")
+    db_url = "sqlite:///./nexusmind.db"
+    engine = create_engine(db_url, connect_args={"check_same_thread": False}, future=True)
+    SessionLocal.configure(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    logger.info("[Database] Resilient SQLite fallback database initialized successfully.")
 
 
 def get_db():
