@@ -8,7 +8,6 @@ databases:
     user: nexus
     plan: free
     region: oregon
-    ipAllowList: []  # Internal cluster access only
 
 services:
   # 1. Redis / Key-Value Cache for Real-Time WebSocket Pub/Sub
@@ -17,7 +16,6 @@ services:
     plan: free
     region: oregon
     maxmemoryPolicy: allkeys-lru
-    ipAllowList: []  # Internal cluster access only
 
   # 2. Unified FastAPI & Single-Page Application (SPA) Web Service
   - type: web

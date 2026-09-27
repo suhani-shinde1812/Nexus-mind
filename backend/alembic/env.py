@@ -4,14 +4,12 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.config import get_settings
-from app.database import Base
+from app.database import Base, normalize_database_url
 from app import models  # noqa: F401  -- registers all models on Base.metadata
 
 config = context.config
 settings = get_settings()
-db_url = settings.database_url
-if db_url.startswith("postgres://"):
-    db_url = db_url.replace("postgres://", "postgresql://", 1)
+db_url = normalize_database_url(settings.database_url)
 config.set_main_option("sqlalchemy.url", db_url)
 
 

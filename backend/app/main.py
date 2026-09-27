@@ -30,11 +30,31 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Ensure all tables and columns exist safely and idempotently
+    import logging
+    import time
     from sqlalchemy import inspect, text
     from app import models
     from app.database import Base, engine
-    Base.metadata.create_all(bind=engine)
+
+    logger = logging.getLogger("nexusmind.startup")
+
+    # Connect with retries to tolerate cloud database cold-starts and DNS propagation
+    max_retries = 5
+    for attempt in range(1, max_retries + 1):
+        try:
+            Base.metadata.create_all(bind=engine)
+            logger.info("Database schema verified/created successfully.")
+            break
+        except Exception as e:
+            if attempt == max_retries:
+                logger.error(f"Critical: Database connection failed after {max_retries} attempts: {e}")
+                raise
+            wait_time = attempt * 2
+            logger.warning(
+                f"Database connection attempt {attempt}/{max_retries} failed ({e}). "
+                f"Retrying in {wait_time}s..."
+            )
+            time.sleep(wait_time)
 
     try:
         inspector = inspect(engine)
