@@ -1,10 +1,12 @@
 /**
  * NEXUS MIND - ROLE PORTALS & WORKSPACE VIEWS
  * Multi-role tailored portals: Employee, Team Lead, Project Manager, Administrator
- * Interactive tabs: Dashboard, Tasks, Autonomous AI Swarm, Analytics, Meetings, Knowledge Hub, Activity Trail.
+ * Interactive tabs: Dashboard, Tasks, War Room, Simulation, Analytics, Meetings, Knowledge Hub, Activity Trail.
  */
 import { store } from '../state.js';
 import { monitoringAgent } from '../agents/monitoringAgent.js';
+import { warRoomAgent, AGENTS } from '../agents/warRoomAgent.js';
+import { meetingIntelAgent } from '../agents/meetingIntelAgent.js';
 
 export class RolePortals {
   constructor(containerId) {
@@ -25,6 +27,11 @@ export class RolePortals {
 
     if (this.activeTab === 'agents') {
       this.renderAgentsTab(state);
+      return;
+    }
+
+    if (this.activeTab === 'simulation') {
+      this.renderSimulationTab(state);
       return;
     }
 
@@ -454,160 +461,135 @@ export class RolePortals {
   }
 
   // --------------------------------------------------------------------------
-  // 6. AUTONOMOUS AI SWARM TAB
+  // 6. WAR ROOM — AUTONOMOUS AGENT PARALLEL EXECUTION VISUALIZER
   // --------------------------------------------------------------------------
   renderAgentsTab(state) {
-    const agentsDef = [
-      {
-        id: 'pm',
-        name: 'Project Manager Agent',
-        icon: '📊',
-        role: 'Sprint Delivery Forecasting, Milestone Tracking & Critical Path Analysis',
-        tools: ['get_projects', 'get_project_summary', 'get_task_status', 'get_task_deadline', 'get_completed_tasks'],
-        defaultAction: 'Sprint Forecasting',
-        defaultTool: 'get_projects',
-        defaultMsg: 'Monitors sprint delivery trajectories and active project milestones.'
-      },
-      {
-        id: 'dev',
-        name: 'Developer Agent',
-        icon: '💻',
-        role: 'Task Assignment, Dependencies, Technical Decomposition & Blockers',
-        tools: ['get_assignee', 'get_task_dependencies', 'search_tasks', 'get_in_progress_tasks'],
-        defaultAction: 'Dependency Verification',
-        defaultTool: 'get_task_dependencies',
-        defaultMsg: 'Indexed DAG node graph with verified prerequisite linkages.'
-      },
-      {
-        id: 'security',
-        name: 'Security Agent',
-        icon: '🛡️',
-        role: 'Policy Auditing, Threat Radar, Anomaly Detection & Session Security',
-        tools: ['audit_policy', 'detect_anomalies', 'get_threat_radar'],
-        defaultAction: 'Policy Auditing',
-        defaultTool: 'audit_policy',
-        defaultMsg: 'Verified RBAC session security and enterprise auth token hygiene.'
-      },
-      {
-        id: 'knowledge',
-        name: 'Knowledge Agent',
-        icon: '📚',
-        role: 'Grounded Document Retrieval, Architecture Specs & SOP Citations',
-        tools: ['rag_search', 'get_citations', 'summarize_doc'],
-        defaultAction: 'RAG Search',
-        defaultTool: 'rag_search',
-        defaultMsg: 'Knowledge retrieval embeddings active. Grounded source citations ready.'
-      },
-      {
-        id: 'analytics',
-        name: 'Analytics Agent',
-        icon: '📈',
-        role: 'Workload Balancing, Employee Headcount, Capacity & ML Risk Telemetry',
-        tools: ['count_organization_members', 'get_organization_members', 'get_team_capacity', 'get_project_risk'],
-        defaultAction: 'Capacity Telemetry',
-        defaultTool: 'get_team_capacity',
-        defaultMsg: 'Audited organization capacity load leveling and employee headcount.'
-      }
-    ];
-
+    const agentIds = Object.keys(AGENTS);
+    const agentStates = warRoomAgent.getAgentStates();
     const logs = state.agentSwarmLogs || [];
 
     this.container.innerHTML = `
-      <div style="display: flex; flex-direction: column; gap: 18px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="war-room">
+        <!-- Header -->
+        <div class="war-room-header">
           <div>
-            <h3 style="font-size: 1.05rem; color: #fff; font-weight: 800;">🤖 Autonomous AI Swarm Intelligence</h3>
-            <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">Active Multi-Agent Network • Real-time DB Scans & Controlled Tool Execution</p>
+            <h3 class="war-room-title">🎖️ Nexus Agent War Room</h3>
+            <p class="war-room-subtitle">4 specialist agents running in parallel · Real-time execution stream · Human-in-the-Loop consensus</p>
           </div>
-          <button class="btn btn-gradient btn-xs glow-cyan" id="btnSwarmRescan">⚡ Trigger Swarm Scan</button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-gradient glow-cyan btn-xs" id="btnWarRoomAnalyse">▶ Run Full Analysis</button>
+          </div>
         </div>
 
-        <!-- 5 Swarm Agents Grid -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
-          ${agentsDef.map(agent => {
-            const latestLog = logs.find(l =>
-              (l.agent && l.agent.toLowerCase().includes(agent.id)) ||
-              (l.agent && l.agent.toLowerCase().includes(agent.name.toLowerCase().split(' ')[0]))
-            ) || {
-              action: agent.defaultAction,
-              tool: agent.defaultTool,
-              message: agent.defaultMsg,
-              status: 'Active',
-              time: 'Active'
-            };
-
-            const toolExecuted = latestLog.tool || latestLog.action || agent.defaultTool;
-            const statusClass = (latestLog.status || 'Active').toLowerCase();
+        <!-- 4-Agent Grid -->
+        <div class="war-room-grid">
+          ${agentIds.map(id => {
+            const agent = AGENTS[id];
+            const as = agentStates[id] || { status: 'idle', lastMessage: 'Awaiting command...', logLines: [] };
+            const statusColors = { idle: '#475569', active: '#00F2FE', thinking: '#A855F7', done: '#22C55E', error: '#EF4444' };
+            const color = statusColors[as.status] || '#475569';
 
             return `
-              <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
-                <div>
-                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <span style="font-size: 1.25rem;">${agent.icon}</span>
-                      <h4 style="font-size: 0.85rem; color: #fff; font-weight: 700;">${agent.name}</h4>
+              <div class="war-room-agent-card" id="war-agent-${id}" style="--agent-color:${agent.color};">
+                <div class="war-agent-header">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <div class="war-agent-avatar" style="background:${agent.color}22; border-color:${agent.color};">${agent.avatar}</div>
+                    <div>
+                      <div class="war-agent-name">${agent.name}</div>
+                      <div class="war-agent-badge" style="color:${agent.color};">${agent.badge}</div>
                     </div>
-                    <span class="task-status-pill ${statusClass === 'active' || statusClass === 'ready' ? 'done' : 'in_progress'}">${latestLog.status || 'Active'}</span>
                   </div>
-                  <p style="font-size: 0.725rem; color: var(--text-secondary); line-height: 1.35; margin-bottom: 10px;">${agent.role}</p>
-                </div>
-
-                <div style="background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 8px 10px; font-size: 0.725rem;">
-                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="color: var(--text-muted);">Last Action:</span>
-                    <strong style="color: var(--cyan-primary);">${latestLog.action}</strong>
-                  </div>
-                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="color: var(--text-muted);">Tool Executed:</span>
-                    <code style="background: rgba(0,242,254,0.1); color: var(--cyan-primary); padding: 1px 4px; border-radius: 3px; font-size: 0.68rem;">${toolExecuted}</code>
-                  </div>
-                  <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); color: var(--text-secondary);">
-                    ${latestLog.message}
+                  <div class="war-agent-status" style="color:${color};">
+                    ${as.status === 'thinking' || as.status === 'active' ? '<span class="war-pulse"></span>' : ''}
+                    ${as.status.toUpperCase()}
                   </div>
                 </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 0.68rem; color: var(--text-muted);">
-                  <span>Permitted: ${agent.tools.slice(0, 2).join(', ')}...</span>
-                  <span>${latestLog.time || 'Live'}</span>
+                <div class="war-agent-specialty">${agent.specialty}</div>
+                <div class="war-agent-log" id="war-log-${id}">
+                  ${as.logLines.length > 0
+                    ? as.logLines.slice(-6).map(l => `<div class="war-log-line">${l.line}</div>`).join('')
+                    : `<div class="war-log-line" style="color:#475569;">Awaiting command...</div>`
+                  }
                 </div>
+                ${as.lastMessage ? `<div class="war-agent-footer" style="border-color:${agent.color}44;">${as.lastMessage}</div>` : ''}
               </div>
             `;
           }).join('')}
         </div>
 
-        <!-- Real-Time Agent Reasoning Stream -->
-        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <h4 style="font-size: 0.85rem; color: var(--cyan-primary); font-weight: 700;">⚡ Live Agent Swarm Reasoning Stream</h4>
-            <span style="font-size: 0.7rem; color: var(--text-muted);">${logs.length} operations recorded</span>
+        <!-- Swarm Reasoning Stream -->
+        <div class="war-room-stream">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h4 style="font-size:0.85rem; color:var(--cyan-primary); font-weight:700;">⚡ Live Swarm Reasoning Stream</h4>
+            <span style="font-size:0.7rem; color:var(--text-muted);">${logs.length} swarm operations</span>
           </div>
-          <div style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto;">
-            ${logs.length > 0 ? logs.map(log => `
-              <div style="display: flex; justify-content: space-between; align-items: flex-start; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; padding: 8px 12px;">
-                <div>
-                  <div style="display: flex; align-items: center; gap: 6px;">
-                    <span style="font-size: 0.75rem; font-weight: 700; color: #fff;">${log.agent}</span>
-                    <span style="font-size: 0.65rem; color: var(--cyan-primary);">[${log.action}]</span>
-                    ${log.tool ? `<code style="font-size: 0.62rem; background: rgba(0,242,254,0.1); color: var(--cyan-primary); padding: 1px 3px; border-radius: 2px;">tool: ${log.tool}</code>` : ''}
-                  </div>
-                  <div style="font-size: 0.725rem; color: var(--text-secondary); margin-top: 2px;">${log.message}</div>
+          <div class="war-stream-log" id="warStreamLog">
+            ${logs.length > 0 ? logs.slice(-15).reverse().map(log => `
+              <div class="war-stream-entry">
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <span style="font-size:0.75rem; font-weight:700; color:#fff;">${log.agent}</span>
+                  <span style="font-size:0.65rem; color:var(--cyan-primary);">[${log.action}]</span>
+                  ${log.tool ? `<code style="font-size:0.62rem; background:rgba(0,242,254,0.1); color:var(--cyan-primary); padding:1px 3px; border-radius:2px;">tool: ${log.tool}</code>` : ''}
                 </div>
-                <span style="font-size: 0.65rem; color: var(--text-muted); white-space: nowrap; margin-left: 10px;">${log.time}</span>
+                <div style="font-size:0.725rem; color:var(--text-secondary); margin-top:2px;">${log.message}</div>
+                <span style="font-size:0.65rem; color:var(--text-muted);">${log.time}</span>
               </div>
-            `).join('') : '<p class="text-muted" style="font-size: 0.75rem;">No agent swarm events logged yet.</p>'}
+            `).join('') : '<p style="font-size:0.75rem; color:var(--text-muted);">Click ▶ Run Full Analysis to launch all agents.</p>'}
           </div>
         </div>
       </div>
     `;
 
-    const rescanBtn = this.container.querySelector('#btnSwarmRescan');
-    if (rescanBtn) {
-      rescanBtn.addEventListener('click', () => {
-        monitoringAgent.analyzeGraphRisks();
-        store.addToast('AI Swarm Scan Complete', 'Evaluated all graph dependencies & SLA risk factors.', 'success');
+    // Bind run button
+    const runBtn = this.container.querySelector('#btnWarRoomAnalyse');
+    if (runBtn) {
+      runBtn.addEventListener('click', async () => {
+        runBtn.disabled = true;
+        runBtn.textContent = '⏳ Agents Running...';
+
+        // Subscribe to updates and re-render agent cards
+        warRoomAgent.onUpdate((agentStates, _) => {
+          Object.keys(agentStates).forEach(id => {
+            const as = agentStates[id];
+            const logEl = document.getElementById(`war-log-${id}`);
+            if (logEl && as.logLines.length > 0) {
+              logEl.innerHTML = as.logLines.slice(-6).map(l => `<div class="war-log-line">${l.line}</div>`).join('');
+              logEl.scrollTop = logEl.scrollHeight;
+            }
+            const card = document.getElementById(`war-agent-${id}`);
+            if (card) {
+              const statusEl = card.querySelector('.war-agent-status');
+              if (statusEl) {
+                const statusColors = { idle: '#475569', active: '#00F2FE', thinking: '#A855F7', done: '#22C55E', error: '#EF4444' };
+                const color = statusColors[as.status] || '#475569';
+                statusEl.style.color = color;
+                statusEl.innerHTML = `${as.status === 'thinking' || as.status === 'active' ? '<span class="war-pulse"></span>' : ''} ${as.status.toUpperCase()}`;
+              }
+              const footerEl = card.querySelector('.war-agent-footer');
+              if (footerEl && as.lastMessage) footerEl.textContent = as.lastMessage;
+            }
+          });
+        });
+
+        await warRoomAgent.runFullAnalysis();
+        store.addToast('War Room Complete', '4-agent analysis finished. Consensus reached.', 'success');
+        runBtn.disabled = false;
+        runBtn.textContent = '▶ Run Full Analysis';
         this.render();
       });
     }
+  }
+
+  // --------------------------------------------------------------------------
+  // 6b. MONTE CARLO SIMULATION SANDBOX TAB
+  // --------------------------------------------------------------------------
+  renderSimulationTab(state) {
+    this.container.innerHTML = '<div id="simSandboxMount" style="width:100%;"></div>';
+    // Lazy-import to avoid circular deps
+    import('../components/simulationSandbox.js').then(({ SimulationSandbox }) => {
+      const sandbox = new SimulationSandbox('simSandboxMount');
+      sandbox.render();
+    });
   }
 
   // --------------------------------------------------------------------------
@@ -684,51 +666,206 @@ export class RolePortals {
   }
 
   // --------------------------------------------------------------------------
-  // 8. TEAM MEETINGS TAB
+  // 8. TEAM MEETINGS TAB — WITH MEETING INTELLIGENCE AGENT
   // --------------------------------------------------------------------------
   renderMeetingsTab(state) {
     const meetings = state.meetings || [];
     const upcoming = meetings.filter(m => m.status === 'scheduled');
-    const cancelled = meetings.filter(m => m.status === 'cancelled');
+    const actionItems = meetingIntelAgent.actionItems;
+    const transcript = meetingIntelAgent.transcript;
+    const isRecording = meetingIntelAgent.isRecording;
 
     this.container.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h3 style="font-size: 1rem; font-weight: 700; color: #fff;">🗓️ Team Video Meetings & Standups</h3>
-        <button class="btn btn-primary btn-sm btn-open-meeting-modal">📅 Schedule Meeting</button>
-      </div>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <!-- Header -->
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 style="font-size:1rem; font-weight:700; color:#fff;">🗓️ Team Video Meetings & AI Meeting Intelligence</h3>
+          <button class="btn btn-primary btn-sm btn-open-meeting-modal">📅 Schedule Meeting</button>
+        </div>
 
-      <div class="task-list-container">
-        ${upcoming.map(m => `
-          <div class="task-item-card" data-meeting-id="${m.id}" style="flex-direction: column; align-items: stretch; gap: 10px;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-              <div>
-                <div class="task-title">📅 ${m.title}</div>
-                <div class="task-meta">
-                  <span>${m.date} • ${m.time} (${m.duration} min)</span>
-                  <span>Project: ${m.project}</span>
-                </div>
-              </div>
-              <span class="search-item-tag">Organizer: ${m.organizer}</span>
+        <!-- Meeting Intel Panel -->
+        <div class="meeting-intel-panel">
+          <div class="meeting-intel-header">
+            <div>
+              <div style="font-size:0.9rem; font-weight:700; color:#fff;">🎙️ Meeting Intelligence Agent</div>
+              <div style="font-size:0.75rem; color:var(--text-muted);">Live speech-to-text · NLP action item extraction · Auto-task insertion</div>
             </div>
-
-            ${m.agenda ? `<p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4;">${m.agenda}</p>` : ''}
-
-            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-              ${m.attendees.map(a => `<span style="font-size: 0.7rem; background: rgba(255,255,255,0.06); padding: 3px 9px; border-radius: 10px; color: var(--text-secondary);">👤 ${a}</span>`).join('')}
-            </div>
-
-            <div style="display: flex; gap: 8px; margin-top: 4px;">
-              <button class="btn btn-primary btn-xs btn-join-meeting" data-id="${m.id}">🎥 Join Live Video Room</button>
-              <button class="btn btn-ghost btn-xs btn-cancel-meeting" data-id="${m.id}" style="color:#EF4444; border-color:#EF4444;">Cancel</button>
+            <div style="display:flex; gap:8px;">
+              ${isRecording
+                ? `<button class="btn btn-sm" style="background:#EF4444; color:#fff;" id="btnStopTranscription">⏹ Stop & Extract</button>`
+                : `<button class="btn btn-sm" style="background:#22C55E; color:#fff;" id="btnStartTranscription">🎙 Start Live Transcription</button>
+                   <button class="btn btn-ghost btn-sm" id="btnDemoTranscription">▶ Demo Mode</button>`
+              }
             </div>
           </div>
-        `).join('')}
-        ${upcoming.length === 0 ? '<p class="text-muted">No meetings currently scheduled.</p>' : ''}
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;">
+            <!-- Transcript Feed -->
+            <div>
+              <div style="font-size:0.75rem; font-weight:700; color:var(--cyan-primary); margin-bottom:8px;">
+                📝 Live Transcript ${isRecording ? '<span class="war-pulse" style="display:inline-block;"></span>' : ''}
+              </div>
+              <div class="meeting-transcript-feed" id="transcriptFeed">
+                ${transcript.length > 0
+                  ? transcript.slice(-12).map(t => `
+                      <div class="transcript-line">
+                        <span class="transcript-time">${t.time}</span>
+                        <span class="transcript-text">${t.text}</span>
+                      </div>`).join('')
+                  : '<div style="font-size:0.75rem; color:#475569; padding:12px;">Transcript will appear here during the meeting...</div>'
+                }
+              </div>
+            </div>
+
+            <!-- Action Items -->
+            <div>
+              <div style="font-size:0.75rem; font-weight:700; color:#A855F7; margin-bottom:8px;">
+                ✅ Extracted Action Items (${actionItems.length})
+              </div>
+              <div class="meeting-actions-feed" id="actionsFeed">
+                ${actionItems.length > 0
+                  ? actionItems.map(item => `
+                      <div class="action-item-card ${item.inserted ? 'inserted' : ''}">
+                        <div class="action-item-text">${item.text}</div>
+                        <div class="action-item-meta">
+                          ${item.assignee ? `<span class="action-assignee">👤 ${item.assignee}</span>` : '<span style="color:#475569;">👤 Unassigned</span>'}
+                          <span style="color:#475569;">📅 ${item.deadline}</span>
+                          <span style="color:#A855F7;">${Math.round(item.confidence * 100)}% confidence</span>
+                        </div>
+                        ${!item.inserted
+                          ? `<button class="btn btn-xs btn-primary action-insert-btn" data-id="${item.id}">+ Add to Graph</button>`
+                          : '<span style="font-size:0.7rem; color:#22C55E;">✓ Added to Live Graph</span>'
+                        }
+                      </div>`).join('')
+                  : '<div style="font-size:0.75rem; color:#475569; padding:12px;">Action items extracted from speech will appear here...</div>'
+                }
+              </div>
+              ${actionItems.filter(i => !i.inserted).length > 1 ? `
+                <button class="btn btn-primary btn-sm" id="btnInsertAllActions" style="margin-top:8px; width:100%;">
+                  + Insert All ${actionItems.filter(i => !i.inserted).length} Items to Graph
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+
+        <!-- Scheduled Meetings -->
+        <div class="task-list-container">
+          ${upcoming.map(m => `
+            <div class="task-item-card" data-meeting-id="${m.id}" style="flex-direction:column; align-items:stretch; gap:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                  <div class="task-title">📅 ${m.title}</div>
+                  <div class="task-meta">
+                    <span>${m.date} • ${m.time} (${m.duration} min)</span>
+                    <span>Project: ${m.project}</span>
+                  </div>
+                </div>
+                <span class="search-item-tag">Organizer: ${m.organizer}</span>
+              </div>
+              ${m.agenda ? `<p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.4;">${m.agenda}</p>` : ''}
+              <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                ${m.attendees.map(a => `<span style="font-size:0.7rem; background:rgba(255,255,255,0.06); padding:3px 9px; border-radius:10px; color:var(--text-secondary);">👤 ${a}</span>`).join('')}
+              </div>
+              <div style="display:flex; gap:8px; margin-top:4px;">
+                <button class="btn btn-primary btn-xs btn-join-meeting" data-id="${m.id}">🎥 Join Live Video Room</button>
+                <button class="btn btn-ghost btn-xs btn-cancel-meeting" data-id="${m.id}" style="color:#EF4444; border-color:#EF4444;">Cancel</button>
+              </div>
+            </div>
+          `).join('')}
+          ${upcoming.length === 0 ? '<p class="text-muted">No meetings currently scheduled.</p>' : ''}
+        </div>
       </div>
     `;
 
+    this._bindMeetingIntelEvents();
     this.attachMeetingsEvents();
   }
+
+  _bindMeetingIntelEvents() {
+    // Start transcription
+    const startBtn = this.container.querySelector('#btnStartTranscription');
+    if (startBtn) {
+      startBtn.addEventListener('click', () => {
+        if (!meetingIntelAgent.isSupported) {
+          store.addToast('Not Supported', 'Web Speech API is not available in this browser. Try Chrome.', 'warning');
+          return;
+        }
+        meetingIntelAgent.onTranscriptUpdate(() => this.renderMeetingsTab(store.getState()));
+        meetingIntelAgent.onActionItemsUpdate(() => this.renderMeetingsTab(store.getState()));
+        meetingIntelAgent.startTranscription('Team Meeting');
+        this.renderMeetingsTab(store.getState());
+        store.addToast('Transcription Started', 'Live speech-to-text is now active.', 'success');
+      });
+    }
+
+    // Demo transcription
+    const demoBtn = this.container.querySelector('#btnDemoTranscription');
+    if (demoBtn) {
+      demoBtn.addEventListener('click', () => {
+        meetingIntelAgent.onTranscriptUpdate((t) => {
+          const feed = document.getElementById('transcriptFeed');
+          if (feed) {
+            feed.innerHTML = t.slice(-12).map(entry => `
+              <div class="transcript-line">
+                <span class="transcript-time">${entry.time}</span>
+                <span class="transcript-text">${entry.text}</span>
+              </div>`).join('');
+            feed.scrollTop = feed.scrollHeight;
+          }
+        });
+        meetingIntelAgent.onActionItemsUpdate((items) => {
+          const feed = document.getElementById('actionsFeed');
+          if (feed) {
+            feed.innerHTML = items.map(item => `
+              <div class="action-item-card ${item.inserted ? 'inserted' : ''}">
+                <div class="action-item-text">${item.text}</div>
+                <div class="action-item-meta">
+                  ${item.assignee ? `<span class="action-assignee">👤 ${item.assignee}</span>` : '<span style="color:#475569;">👤 Unassigned</span>'}
+                  <span style="color:#475569;">📅 ${item.deadline}</span>
+                  <span style="color:#A855F7;">${Math.round(item.confidence * 100)}% confidence</span>
+                </div>
+                ${!item.inserted
+                  ? `<button class="btn btn-xs btn-primary action-insert-btn" data-id="${item.id}">+ Add to Graph</button>`
+                  : '<span style="font-size:0.7rem; color:#22C55E;">✓ Added to Live Graph</span>'
+                }
+              </div>`).join('');
+          }
+        });
+        meetingIntelAgent.simulateTranscription('Sprint Planning Demo');
+        store.addToast('Demo Started', 'Simulating sprint planning meeting transcription...', 'info');
+      });
+    }
+
+    // Stop transcription
+    const stopBtn = this.container.querySelector('#btnStopTranscription');
+    if (stopBtn) {
+      stopBtn.addEventListener('click', () => {
+        const summary = meetingIntelAgent.stopTranscription();
+        store.addToast('Meeting Ended', `${summary.actionItems.length} action items extracted from ${summary.duration} meeting.`, 'success');
+        this.renderMeetingsTab(store.getState());
+      });
+    }
+
+    // Individual insert buttons
+    this.container.querySelectorAll('.action-insert-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.currentTarget.getAttribute('data-id');
+        await meetingIntelAgent.insertActionItemAsTask(id);
+        this.renderMeetingsTab(store.getState());
+      });
+    });
+
+    // Insert all
+    const insertAllBtn = this.container.querySelector('#btnInsertAllActions');
+    if (insertAllBtn) {
+      insertAllBtn.addEventListener('click', async () => {
+        await meetingIntelAgent.insertAllActionItems();
+        this.renderMeetingsTab(store.getState());
+      });
+    }
+  }
+
 
   attachMeetingsEvents() {
     this.container.querySelectorAll('.btn-join-meeting').forEach(btn => {

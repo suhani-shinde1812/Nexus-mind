@@ -271,6 +271,20 @@ class ApiClient {
   getEvaluationSummary() {
     return this._request('/api/evaluation/summary');
   }
+
+  // ---- Critical Path Method ----
+  getCriticalPath() {
+    return this._request('/api/simulation/critical-path');
+  }
+
+  // ---- GitHub CI Auto-Triage ----
+  getTriageHistory(limit = 20) {
+    return this._request(`/api/integrations/github/triage/history?limit=${limit}`);
+  }
+
+  simulateCiFailure(payload) {
+    return this._request('/api/integrations/github/triage/simulate', { method: 'POST', body: payload });
+  }
 }
 
 export const api = new ApiClient();

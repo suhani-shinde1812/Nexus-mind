@@ -568,6 +568,19 @@ class NexusApp {
       });
     }
 
+    const cpmBtn = document.getElementById('btnToggleCpm');
+    if (cpmBtn) {
+      cpmBtn.addEventListener('click', async () => {
+        cpmBtn.disabled = true;
+        cpmBtn.textContent = '⏳ Computing...';
+        const isActive = await this.graphEngine.toggleCpmMode();
+        cpmBtn.disabled = false;
+        cpmBtn.textContent = isActive ? '🏗️ CPM: ON' : '🏗️ CPM';
+        cpmBtn.style.background = isActive ? 'rgba(255,215,0,0.12)' : '';
+        cpmBtn.style.color = '#FFD700';
+      });
+    }
+
     document.getElementById('btnCloseNodeDrawer')?.addEventListener('click', () => {
       document.getElementById('nodeDetailDrawer')?.classList.add('hidden');
     });

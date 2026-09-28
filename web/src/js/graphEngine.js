@@ -207,6 +207,110 @@ export class LiveTaskGraphEngine {
     this.render();
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // CPM OVERLAY — Glowing Critical Path + Slack Float Badges
+  // ─────────────────────────────────────────────────────────────────────────
+  get cpmModeActive() { return this._cpmMode; }
+
+  async toggleCpmMode() {
+    if (!this._cpmMode) {
+      try {
+        const { api } = await import('./api.js');
+        const data = await api.getCriticalPath();
+        this._cpmData = data;
+        this._cpmMode = true;
+        store.addToast('CPM Mode', `Critical path: ${data.critical_path?.length || 0} tasks (${data.project_duration_days}d)`, 'info');
+      } catch (err) {
+        // Build CPM locally from state
+        this._cpmData = this._buildLocalCpm();
+        this._cpmMode = true;
+        store.addToast('CPM Mode (Local)', `Critical path computed from ${store.getState().tasks.length} tasks`, 'info');
+      }
+    } else {
+      this._cpmMode = false;
+      this._cpmData = null;
+      store.addToast('CPM Mode Off', 'Returned to standard graph view.', 'info');
+    }
+    this.render();
+    return this._cpmMode;
+  }
+
+  _buildLocalCpm() {
+    // Client-side CPM approximation for demo/offline mode
+    const tasks = store.getState().tasks || [];
+    const taskMap = {};
+    tasks.forEach(t => taskMap[t.id] = t);
+
+    const durations = {};
+    tasks.forEach(t => {
+      const p = (t.priority || 'medium').toLowerCase();
+      durations[t.id] = p === 'critical' ? 4.5 : p === 'high' ? 3.5 : p === 'medium' ? 2.5 : 1.5;
+    });
+
+    // Forward pass
+    const es = {}, ef = {};
+    const parents = {};
+    tasks.forEach(t => {
+      parents[t.id] = (t.dependsOn || []).filter(d => taskMap[d]);
+    });
+
+    const topo = this._topoSort(tasks.map(t => t.id), parents);
+    topo.forEach(id => {
+      const maxParentEf = parents[id].length ? Math.max(...parents[id].map(p => ef[p] || 0)) : 0;
+      es[id] = maxParentEf;
+      ef[id] = es[id] + (durations[id] || 2.5);
+    });
+
+    const projectDuration = topo.length ? Math.max(...topo.map(id => ef[id] || 0)) : 14.4;
+
+    // Backward pass
+    const children = {};
+    tasks.forEach(t => { children[t.id] = []; });
+    tasks.forEach(t => { (t.dependsOn || []).forEach(p => { if (children[p]) children[p].push(t.id); }); });
+
+    const lf = {}, ls = {};
+    [...topo].reverse().forEach(id => {
+      lf[id] = children[id].length ? Math.min(...children[id].map(c => ls[c] || projectDuration)) : projectDuration;
+      ls[id] = lf[id] - (durations[id] || 2.5);
+    });
+
+    const criticalPath = topo.filter(id => Math.abs((lf[id] || 0) - (ef[id] || 0)) <= 0.05);
+    const schedule = {};
+    topo.forEach(id => {
+      const t = taskMap[id];
+      schedule[id] = {
+        task_id: id,
+        title: t?.title || id,
+        duration: durations[id],
+        early_start: Math.round((es[id] || 0) * 10) / 10,
+        early_finish: Math.round((ef[id] || 0) * 10) / 10,
+        late_start: Math.round((ls[id] || 0) * 10) / 10,
+        late_finish: Math.round((lf[id] || 0) * 10) / 10,
+        slack: Math.round(((lf[id] || 0) - (ef[id] || 0)) * 10) / 10,
+        is_critical: criticalPath.includes(id),
+      };
+    });
+
+    return { project_duration_days: Math.round(projectDuration * 10) / 10, critical_path: criticalPath, schedule };
+  }
+
+  _topoSort(ids, parents) {
+    const inDeg = {};
+    ids.forEach(id => inDeg[id] = (parents[id] || []).length);
+    const queue = ids.filter(id => inDeg[id] === 0);
+    const result = [];
+    const children = {};
+    ids.forEach(id => { children[id] = []; });
+    ids.forEach(id => { (parents[id] || []).forEach(p => { if (children[p]) children[p].push(id); }); });
+    while (queue.length) {
+      const u = queue.shift();
+      result.push(u);
+      (children[u] || []).forEach(v => { inDeg[v]--; if (inDeg[v] === 0) queue.push(v); });
+    }
+    ids.forEach(id => { if (!result.includes(id)) result.push(id); });
+    return result;
+  }
+
   startPhysicsLoop() {
     if (!this.physicsEnabled) return;
     
@@ -304,22 +408,38 @@ export class LiveTaskGraphEngine {
           <stop offset="0%" stop-color="#00F2FE" />
           <stop offset="100%" stop-color="#7F00FF" />
         </linearGradient>
+        ${this._cpmMode ? `
+        <filter id="glow-cpm" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+          <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <marker id="arrow-cpm" viewBox="0 0 10 10" refX="28" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#FFD700" />
+        </marker>
+        ` : ''}
       </defs>
       <g transform="translate(${this.panX}, ${this.panY}) scale(${this.zoomScale})">
         <rect class="graph-bg" width="3600" height="2400" x="-1200" y="-1200" fill="transparent"/>
     `;
 
     // 1. Dependency Vectors
+    const criticalPathSet = new Set(this._cpmMode && this._cpmData ? (this._cpmData.critical_path || []) : []);
+    const scheduleMap = this._cpmMode && this._cpmData ? (this._cpmData.schedule || {}) : {};
+
     tasks.forEach(targetNode => {
       if (targetNode.dependsOn && targetNode.dependsOn.length > 0) {
         targetNode.dependsOn.forEach(sourceId => {
           const sourceNode = taskMap[sourceId];
           if (sourceNode) {
-            const isRiskEdge = targetNode.aiRiskScore > 0.6 || sourceNode.aiRiskScore > 0.6;
-            const isCriticalPath = targetNode.priority === 'Critical' && sourceNode.priority === 'Critical';
-            
-            let strokeColor = isRiskEdge ? '#EF4444' : (isCriticalPath ? '#F59E0B' : '#00F2FE');
-            let markerId = isRiskEdge ? 'arrow-risk' : (isCriticalPath ? 'arrow-critical' : 'arrow-default');
+            const isCpmCriticalEdge = this._cpmMode && criticalPathSet.has(targetNode.id) && criticalPathSet.has(sourceId);
+            const isRiskEdge = !isCpmCriticalEdge && (targetNode.aiRiskScore > 0.6 || sourceNode.aiRiskScore > 0.6);
+            const isCriticalPath = !isCpmCriticalEdge && !isRiskEdge && targetNode.priority === 'Critical' && sourceNode.priority === 'Critical';
+
+            let strokeColor = isCpmCriticalEdge ? '#FFD700' : (isRiskEdge ? '#EF4444' : (isCriticalPath ? '#F59E0B' : '#00F2FE'));
+            let markerId = isCpmCriticalEdge ? 'arrow-cpm' : (isRiskEdge ? 'arrow-risk' : (isCriticalPath ? 'arrow-critical' : 'arrow-default'));
+            let strokeWidth = isCpmCriticalEdge ? 4 : (isRiskEdge || isCriticalPath ? 3 : 2);
+            let filter = isCpmCriticalEdge ? 'filter="url(#glow-cpm)"' : '';
+            let dashArray = isCpmCriticalEdge ? '12,0' : (isRiskEdge ? '6,4' : '8,6');
 
             const midX = (sourceNode.x + targetNode.x) / 2;
             const midY = (sourceNode.y + targetNode.y) / 2 - 30;
@@ -328,18 +448,61 @@ export class LiveTaskGraphEngine {
             svgHtml += `
               <path d="${pathD}"
                 stroke="${strokeColor}"
-                stroke-width="${isRiskEdge || isCriticalPath ? 3 : 2}"
-                stroke-dasharray="${isRiskEdge ? '6,4' : '8,6'}"
+                stroke-width="${strokeWidth}"
+                stroke-dasharray="${dashArray}"
                 fill="none"
-                opacity="0.85"
+                opacity="${isCpmCriticalEdge ? 1 : 0.85}"
+                ${filter}
                 marker-end="url(#${markerId})">
-                <animate attributeName="stroke-dashoffset" from="24" to="0" dur="1.2s" repeatCount="indefinite"/>
+                <animate attributeName="stroke-dashoffset" from="${isCpmCriticalEdge ? 48 : 24}" to="0" dur="${isCpmCriticalEdge ? '0.8s' : '1.2s'}" repeatCount="indefinite"/>
               </path>
             `;
+
+            // CPM particle tracer on critical edges
+            if (isCpmCriticalEdge) {
+              svgHtml += `
+                <circle r="5" fill="#FFD700" opacity="0.9">
+                  <animateMotion dur="2s" repeatCount="indefinite" path="${pathD}"/>
+                  <animate attributeName="opacity" values="0.9;0.3;0.9" dur="2s" repeatCount="indefinite"/>
+                </circle>
+              `;
+            }
           }
         });
       }
     });
+
+    // 1b. CPM Slack Float Badges (non-critical tasks)
+    if (this._cpmMode && scheduleMap) {
+      tasks.forEach(t => {
+        const sched = scheduleMap[t.id];
+        if (sched && !sched.is_critical && sched.slack > 0) {
+          svgHtml += `
+            <g transform="translate(${t.x + 30}, ${t.y - 22})">
+              <rect rx="4" ry="4" width="58" height="16" fill="rgba(168,85,247,0.15)" stroke="#A855F7" stroke-width="0.8" opacity="0.9"/>
+              <text font-size="8" fill="#A855F7" x="4" y="11" font-family="monospace" font-weight="700">+${sched.slack}d float</text>
+            </g>
+          `;
+        }
+        if (sched && sched.is_critical) {
+          svgHtml += `
+            <g transform="translate(${t.x - 28}, ${t.y - 22})">
+              <rect rx="4" ry="4" width="56" height="16" fill="rgba(255,215,0,0.12)" stroke="#FFD700" stroke-width="0.8" opacity="0.9"/>
+              <text font-size="8" fill="#FFD700" x="4" y="11" font-family="monospace" font-weight="700">CRITICAL</text>
+            </g>
+          `;
+        }
+      });
+    }
+
+    // CPM sidebar panel (injected into DOM overlay, not SVG)
+    if (this._cpmMode && this._cpmData) {
+      setTimeout(() => this._renderCpmPanel(), 50);
+    } else {
+      const panel = document.getElementById('cpmSidePanel');
+      if (panel) panel.remove();
+    }
+
 
     // 1b. Live Dragging Dependency Line
     if (this.isConnectingDep && this.connectingSourceId) {
@@ -625,5 +788,80 @@ export class LiveTaskGraphEngine {
         this.drawer.classList.add('hidden');
       });
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CPM Sidebar Table Panel
+  // ─────────────────────────────────────────────────────────────────────────
+  _renderCpmPanel() {
+    const existingPanel = document.getElementById('cpmSidePanel');
+    if (existingPanel) existingPanel.remove();
+
+    const data = this._cpmData;
+    if (!data || !data.schedule) return;
+
+    const schedules = Object.values(data.schedule);
+    const criticalItems = schedules.filter(s => s.is_critical);
+    const nonCritical = schedules.filter(s => !s.is_critical);
+
+    const panel = document.createElement('div');
+    panel.id = 'cpmSidePanel';
+    panel.style.cssText = `
+      position: absolute; top: 80px; right: 16px; width: 280px;
+      background: rgba(11,15,25,0.95); border: 1px solid rgba(255,215,0,0.3);
+      border-radius: 12px; padding: 14px; z-index: 20;
+      backdrop-filter: blur(16px); box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      max-height: 70vh; overflow-y: auto;
+      font-family: 'Inter', sans-serif;
+      animation: slideInRight 0.3s cubic-bezier(0.16,1,0.3,1);
+    `;
+
+    panel.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div>
+          <div style="font-size:0.82rem; font-weight:800; color:#FFD700;">🏗️ CPM Schedule</div>
+          <div style="font-size:0.68rem; color:#94A3B8; margin-top:1px;">Duration: ${data.project_duration_days}d</div>
+        </div>
+        <button id="btnCloseCpmPanel" style="background:none; border:none; color:#94A3B8; cursor:pointer; font-size:1rem; line-height:1;">×</button>
+      </div>
+      <div style="font-size:0.68rem; color:#FFD700; font-weight:700; margin-bottom:6px; letter-spacing:0.05em;">CRITICAL PATH (${criticalItems.length} tasks)</div>
+      <div style="margin-bottom:12px;">
+        ${criticalItems.map(s => `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 8px; margin-bottom:4px; background:rgba(255,215,0,0.06); border-left:2px solid #FFD700; border-radius:4px;">
+            <div>
+              <div style="font-size:0.72rem; color:#fff; font-weight:600;">${s.title.slice(0,24)}${s.title.length > 24 ? '…' : ''}</div>
+              <div style="font-size:0.62rem; color:#94A3B8; font-family:monospace;">ES:${s.early_start} EF:${s.early_finish} LS:${s.late_start} LF:${s.late_finish}</div>
+            </div>
+            <div style="font-size:0.65rem; color:#FFD700; font-weight:700;">${s.duration}d</div>
+          </div>
+        `).join('')}
+      </div>
+      ${nonCritical.length > 0 ? `
+        <div style="font-size:0.68rem; color:#A855F7; font-weight:700; margin-bottom:6px; letter-spacing:0.05em;">FLOAT TASKS (${nonCritical.length})</div>
+        ${nonCritical.map(s => `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 8px; margin-bottom:4px; background:rgba(168,85,247,0.06); border-left:2px solid rgba(168,85,247,0.4); border-radius:4px;">
+            <div>
+              <div style="font-size:0.72rem; color:#fff;">${s.title.slice(0,24)}${s.title.length > 24 ? '…' : ''}</div>
+              <div style="font-size:0.62rem; color:#94A3B8; font-family:monospace;">Slack: +${s.slack}d</div>
+            </div>
+            <div style="font-size:0.65rem; color:#A855F7; font-weight:700;">${s.duration}d</div>
+          </div>
+        `).join('')}
+      ` : ''}
+    `;
+
+    // Mount to graph canvas container
+    const canvasContainer = document.getElementById('graphCanvasContainer');
+    if (canvasContainer) {
+      canvasContainer.style.position = 'relative';
+      canvasContainer.appendChild(panel);
+    }
+
+    document.getElementById('btnCloseCpmPanel')?.addEventListener('click', () => {
+      this._cpmMode = false;
+      this._cpmData = null;
+      panel.remove();
+      this.render();
+    });
   }
 }

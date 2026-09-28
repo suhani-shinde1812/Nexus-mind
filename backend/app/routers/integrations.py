@@ -3,6 +3,7 @@ Engineering Intelligence & GitHub Integrations Router:
 - Repository integration registry
 - HMAC-SHA256 Webhook Receiver & Idempotent Ingestion
 - PR cycle time, commit frequency, CI pass rate, and delivery telemetry
+- CI Auto-Triage: pattern matching, auto task creation, PR comment draft
 """
 import json
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -11,7 +12,7 @@ from sqlalchemy.orm import Session
 from app import models, schemas
 from app.database import get_db
 from app.deps import get_current_user
-from app.services import github_service
+from app.services import github_service, github_triage_service
 
 router = APIRouter(prefix="/api/integrations", tags=["integrations"])
 
@@ -86,9 +87,55 @@ async def receive_github_webhook(
         payload=payload,
     )
 
+    # Auto-triage CI build failures
+    triage_report = None
+    if x_github_event in ["workflow_run", "check_run"] and event and event.status == "failed":
+        failure_log = json.dumps(payload.get("workflow_run", payload.get("check_run", {})))
+        triage_report = github_triage_service.analyse_ci_failure(db, event, failure_log)
+
     return {
         "status": "processed",
         "event_type": x_github_event,
         "delivery_id": x_github_delivery,
         "recorded_id": event.id if event else None,
+        "triage_report": triage_report,
     }
+
+
+@router.get("/github/triage/history")
+def get_triage_history(
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
+    """Return recent auto-triage tasks for the engineering intelligence feed."""
+    return github_triage_service.get_triage_history(db, limit=limit)
+
+
+@router.post("/github/triage/simulate")
+def simulate_ci_failure(
+    payload: dict,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
+    """
+    Manually trigger CI auto-triage engine for demo/testing.
+    Accepts: { "error_log": "...", "build_ref": "BUILD-XXX", "title": "..." }
+    """
+    integ = github_service.get_or_create_default_integration(db)
+    event = models.GithubEvent(
+        integration_id=integ.id,
+        event_type="ci_build",
+        ref_number=payload.get("build_ref", "BUILD-DEMO"),
+        title=payload.get("title", "Simulated CI Failure"),
+        author="GitHub Actions",
+        status="failed",
+        details={"simulated": True},
+    )
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+
+    failure_log = payload.get("error_log", "ModuleNotFoundError: No module named 'requests'")
+    report = github_triage_service.analyse_ci_failure(db, event, failure_log)
+    return report
