@@ -120,6 +120,7 @@ export class MeetingIntelAgent {
     this._startTime = new Date();
     this._transcript = [];
     this._actionItems = [];
+    this._isRecording = true;  // Set BEFORE scheduling timeouts to avoid race condition
 
     const DEMO_LINES = [
       { delay: 500, text: 'Alright everyone, let\'s kick off the sprint planning meeting.' },
@@ -132,6 +133,8 @@ export class MeetingIntelAgent {
       { delay: 11000, text: 'Todo: update the README with the new deployment steps.' },
       { delay: 13000, text: 'Great, I think we have a solid plan. Let\'s wrap up.' },
     ];
+
+    const lastDelay = DEMO_LINES[DEMO_LINES.length - 1].delay;
 
     DEMO_LINES.forEach(({ delay, text }) => {
       setTimeout(() => {
@@ -148,7 +151,14 @@ export class MeetingIntelAgent {
       }, delay);
     });
 
-    this._isRecording = true;
+    // Auto-stop after all demo lines have played — resets UI button state
+    setTimeout(() => {
+      if (this._isRecording) {
+        this._isRecording = false;
+        // Notify UI that demo has finished so button can revert
+        if (this._onTranscriptUpdate) this._onTranscriptUpdate([...this._transcript]);
+      }
+    }, lastDelay + 800);
   }
 
   // ─────────────────────────────────────────────────────────
@@ -235,7 +245,7 @@ export class MeetingIntelAgent {
       store.addToast('Task Inserted', `"${item.rawText.slice(0, 50)}..." added to Live Graph`, 'success');
       await store.init(); // refresh graph
     } catch (err) {
-      store.addToast('Insert Failed', err.message, 'danger');
+      store.addToast('Insert Failed', err.message, 'critical');
     }
   }
 

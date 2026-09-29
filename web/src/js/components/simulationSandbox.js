@@ -121,8 +121,12 @@ export class SimulationSandbox {
     const deltaSign = delta > 0 ? '+' : '';
 
     const p50 = result.on_time_probability;
-    const p80 = Math.max(0, p50 - 18);
-    const p95 = Math.max(0, p50 - 35);
+    // Compute P80/P95 using scenario-adjusted std deviation:
+    // Higher scope/absence = wider distribution = bigger gap between percentiles
+    const riskFactor = (this._selectedAbsent.size * 0.08) + (this._scopeIncrease * 0.015);
+    const stdDev = Math.max(8, Math.min(30, 12 + riskFactor * 100));
+    const p80 = Math.max(0, Math.min(100, Math.round(p50 - stdDev * 0.675)));   // z=0.675 → 75th pct
+    const p95 = Math.max(0, Math.min(100, Math.round(p50 - stdDev * 1.645)));   // z=1.645 → 95th pct
 
     return `
       <!-- Delivery KPIs -->

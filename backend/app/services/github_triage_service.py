@@ -15,9 +15,6 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app import models
-from app.config import get_settings
-
-settings = get_settings()
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Known CI failure pattern knowledge base (supplements RAG)
@@ -38,7 +35,9 @@ CI_FAILURE_PATTERNS: list[dict[str, Any]] = [
         "label": "infrastructure",
     },
     {
-        "pattern": ["assertionerror", "assert", "test failed", "expected", "got"],
+        # Narrowed: require 'assertionerror' or explicit 'test failed' / 'expected ... got' sequences
+        # to avoid false positives from log lines like 'assertion: connecting to db'
+        "pattern": ["assertionerror", "test failed", "expected", "assertion error"],
         "root_cause": "Unit or integration test assertion failure",
         "fix": "Review the failing test output, update expected values or fix the underlying logic regression.",
         "priority": "high",

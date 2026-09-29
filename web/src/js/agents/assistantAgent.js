@@ -94,7 +94,7 @@ export class AiAssistantAgent {
       if (projects.length === 0) {
         return {
           type: 'active_projects',
-          message: `🚀 **Active Projects**: Sprint Alpha - Cloud Migration (Lead: Sarah Jenkins, Progress: 65%)`
+          message: `🚀 **No active projects found** in your organisation yet.\n\nYou can create a new project from the Dashboard or ask your Project Manager to set one up.`
         };
       }
       const pList = projects.map(p => `• **${p.name}** (Lead: **${p.lead || 'Unassigned'}**) — Progress: **${p.progress || 0}%** (Deadline: ${p.deadline || 'Unset'})`).join('\n');

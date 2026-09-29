@@ -125,6 +125,8 @@ class NexusApp {
       if (ganttContainer) ganttContainer.classList.add('hidden');
       if (graphToolbar) graphToolbar.classList.add('hidden');
       if (viewSubtitle) viewSubtitle.textContent = 'Interactive Drag & Drop Board • Backlog to Completed';
+      // Clean up CPM side panel if it was mounted on the graph container
+      document.getElementById('cpmSidePanel')?.remove();
       this.kanbanEngine.render();
     } else if (view === 'timeline') {
       if (graphContainer) graphContainer.classList.add('hidden');
@@ -132,6 +134,7 @@ class NexusApp {
       if (ganttContainer) ganttContainer.classList.remove('hidden');
       if (graphToolbar) graphToolbar.classList.add('hidden');
       if (viewSubtitle) viewSubtitle.textContent = 'Critical Path Schedule & Milestone Durations';
+      document.getElementById('cpmSidePanel')?.remove();
       this.ganttEngine.render();
     }
   }

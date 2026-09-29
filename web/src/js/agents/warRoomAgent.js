@@ -147,7 +147,7 @@ export class WarRoomAgent {
 
     // Try live API call for critical path
     try {
-      const cpm = await api._request('/api/simulation/critical-path');
+      const cpm = await api.getCriticalPath();
       if (cpm?.critical_path) {
         await this._streamLog(id, `🏗️ CPM Critical Path: ${cpm.critical_path.length} tasks (${cpm.project_duration_days}d total)`);
         this._agentStates[id].metrics.cpm = cpm;
@@ -160,7 +160,9 @@ export class WarRoomAgent {
     const coupling = depEdges > tasks.length * 1.5 ? 'HIGH' : depEdges > tasks.length * 0.8 ? 'MEDIUM' : 'LOW';
     await this._streamLog(id, `🔗 Service coupling coefficient: ${coupling} (avg ${(depEdges / Math.max(1, tasks.length)).toFixed(1)} deps/task)`);
     await this._delay(300);
-    await this._streamLog(id, `✅ Architecture analysis complete. Consensus vote: ${blockedTasks.length > 2 ? '⚠️ ESCALATE' : '✓ NOMINAL'}`);
+    const architectVote = blockedTasks.length > 2 ? 'escalate' : 'nominal';
+    await this._streamLog(id, `✅ Architecture analysis complete. Consensus vote: ${architectVote === 'escalate' ? '⚠️ ESCALATE' : '✓ NOMINAL'}`);
+    this._agentStates[id].vote = architectVote;
 
     this._agentStates[id].metrics = {
       ...this._agentStates[id].metrics,
@@ -205,7 +207,9 @@ export class WarRoomAgent {
     const blockedCount = tasks.filter(t => t.status === 'blocked').length;
     await this._streamLog(id, `🚧 ${blockedCount} sprint blockers require Scrum Master intervention`);
     await this._delay(300);
-    await this._streamLog(id, `✅ Velocity analysis complete. Consensus vote: ${burnout ? '⚠️ REBALANCE' : '✓ NOMINAL'}`);
+    const scrumVote = burnout ? 'escalate' : 'nominal';
+    await this._streamLog(id, `✅ Velocity analysis complete. Consensus vote: ${scrumVote === 'escalate' ? '⚠️ REBALANCE' : '✓ NOMINAL'}`);
+    this._agentStates[id].vote = scrumVote;
 
     this._agentStates[id].metrics = { velocity, overloaded: overloaded.length, blocked: blockedCount };
     this._setAgentStatus(id, 'done', `${overloaded.length} overloaded engineer${overloaded.length !== 1 ? 's' : ''} detected`);
@@ -227,7 +231,8 @@ export class WarRoomAgent {
     await this._delay(350);
 
     const users = state.users || [];
-    const mfaEnabled = users.filter(u => u.mfaEnabled).length;
+    // Fix: backend serialises snake_case — check both mfa_enabled and mfaEnabled
+    const mfaEnabled = users.filter(u => u.mfa_enabled || u.mfaEnabled).length;
     await this._streamLog(id, `🔑 MFA compliance: ${mfaEnabled}/${users.length} users enrolled (${Math.round(mfaEnabled / Math.max(1, users.length) * 100)}%)`);
     await this._delay(400);
 
@@ -235,9 +240,12 @@ export class WarRoomAgent {
     const critAlerts = alerts.filter(a => a.severity === 'critical' || a.level === 'critical');
     await this._streamLog(id, `⚠️ Active security alerts: ${alerts.length} total, ${critAlerts.length} critical`);
     await this._delay(300);
-    await this._streamLog(id, `🔒 RBAC policy matrix: 4 roles × 12 permission scopes validated ✓`);
+    const roles = new Set(users.map(u => u.app_role || u.role)).size;
+    await this._streamLog(id, `🔒 RBAC policy matrix: ${roles} roles validated ✓`);
     await this._delay(250);
-    await this._streamLog(id, `✅ Security audit complete. Consensus vote: ${critAlerts.length > 0 ? '🚨 CRITICAL' : '✓ SECURE'}`);
+    const securityVote = critAlerts.length > 0 ? 'escalate' : 'nominal';
+    await this._streamLog(id, `✅ Security audit complete. Consensus vote: ${securityVote === 'escalate' ? '🚨 ESCALATE' : '✓ SECURE'}`);
+    this._agentStates[id].vote = securityVote;
 
     this._agentStates[id].metrics = { mfaCompliance: mfaEnabled, totalAlerts: alerts.length, criticalAlerts: critAlerts.length };
     this._setAgentStatus(id, 'done', `${critAlerts.length} critical alert${critAlerts.length !== 1 ? 's' : ''}, MFA ${Math.round(mfaEnabled / Math.max(1, users.length) * 100)}%`);
@@ -274,7 +282,9 @@ export class WarRoomAgent {
     const onTimeP = state.sprintForecast?.onTimeProbability ?? 72;
     await this._streamLog(id, `🎲 Monte Carlo (1,000 runs): P50=${onTimeP}% on-time | P80=${Math.max(0, onTimeP - 18)}% | P95=${Math.max(0, onTimeP - 35)}%`);
     await this._delay(250);
-    await this._streamLog(id, `✅ Risk analysis complete. Consensus vote: ${riskTasks.length > 3 ? '⚠️ ESCALATE' : '✓ MANAGED'}`);
+    const riskVote = riskTasks.length > 3 ? 'escalate' : 'nominal';
+    await this._streamLog(id, `✅ Risk analysis complete. Consensus vote: ${riskVote === 'escalate' ? '⚠️ ESCALATE' : '✓ MANAGED'}`);
+    this._agentStates[id].vote = riskVote;
 
     this._agentStates[id].metrics = { avgRisk, highRisk: riskTasks.length, onTimeP };
     this._setAgentStatus(id, 'done', `Avg risk: ${avgRisk} | ${riskTasks.length} high-risk tasks`);
@@ -286,12 +296,8 @@ export class WarRoomAgent {
   async _buildConsensus(query) {
     const state = store.getState();
 
-    // Gather votes from all agents
-    const votes = Object.keys(this._agentStates).map(id => {
-      const last = this._agentStates[id].logLines.slice(-1)[0]?.line || '';
-      if (last.includes('ESCALATE') || last.includes('CRITICAL') || last.includes('REBALANCE')) return 'escalate';
-      return 'nominal';
-    });
+    // Gather structured votes stored on each agent state (not parsed from display strings)
+    const votes = Object.keys(this._agentStates).map(id => this._agentStates[id].vote || 'nominal');
 
     const escalateCount = votes.filter(v => v === 'escalate').length;
     const consensus = escalateCount >= 2 ? 'ESCALATE' : 'NOMINAL';
