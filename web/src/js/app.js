@@ -450,6 +450,17 @@ class NexusApp {
         promptInput.value = '';
         handlePromptSubmit(text);
       });
+
+      // Quick Prompt Chips
+      document.querySelectorAll('.copilot-chip').forEach(chip => {
+        chip.addEventListener('click', (e) => {
+          e.preventDefault();
+          const prompt = chip.getAttribute('data-prompt');
+          if (prompt) {
+            handlePromptSubmit(prompt);
+          }
+        });
+      });
     }
 
     if (btnSendChat && chatInput) {

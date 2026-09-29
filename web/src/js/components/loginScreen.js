@@ -17,77 +17,102 @@ export function mountLoginScreen(onSuccess) {
       #nexusLoginOverlay {
         position: fixed; inset: 0; z-index: 9999;
         display: flex; align-items: center; justify-content: center;
-        background: radial-gradient(circle at 30% 20%, #161b33 0%, #060913 75%);
+        background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 242, 254, 0.18) 0%, transparent 60%),
+                    radial-gradient(ellipse 60% 40% at 90% 90%, rgba(139, 92, 246, 0.18) 0%, transparent 60%),
+                    radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                    #06080F;
+        background-size: auto, auto, 28px 28px, auto;
         font-family: 'Plus Jakarta Sans', sans-serif;
-        overflow-y: auto; padding: 20px;
+        overflow-y: auto; padding: 24px;
+        -webkit-font-smoothing: antialiased;
       }
       #nexusLoginOverlay .login-card {
-        width: 440px; max-width: 95vw; padding: 30px;
-        background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(0, 242, 254, 0.25);
-        border-radius: 20px; backdrop-filter: blur(20px);
-        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 35px rgba(0, 242, 254, 0.12);
+        width: 460px; max-width: 95vw; padding: 34px;
+        background: rgba(13, 18, 32, 0.88); border: 1px solid rgba(0, 242, 254, 0.35);
+        border-radius: 24px; backdrop-filter: blur(28px);
+        box-shadow: 0 35px 90px rgba(0, 0, 0, 0.85), 0 0 45px rgba(0, 242, 254, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      @keyframes scaleIn {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
       }
       #nexusLoginOverlay h1 {
-        color: #fff; font-size: 1.55rem; margin: 0 0 4px; font-weight: 800;
+        color: #fff; font-size: 1.7rem; margin: 0 0 6px; font-weight: 800;
         letter-spacing: -0.5px; text-align: center;
+        background: linear-gradient(135deg, #FFFFFF 40%, #00F2FE 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
       }
-      #nexusLoginOverlay p.sub { color: #94A3B8; font-size: 0.825rem; margin: 0 0 16px; text-align: center; }
+      #nexusLoginOverlay p.sub { color: #94A3B8; font-size: 0.8rem; margin: 0 0 20px; text-align: center; }
 
       .auth-tabs-row {
-        display: flex; gap: 6px; background: rgba(0, 0, 0, 0.35); padding: 4px;
-        border-radius: 10px; margin-bottom: 16px; border: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex; gap: 6px; background: rgba(0, 0, 0, 0.4); padding: 4px;
+        border-radius: 12px; margin-bottom: 18px; border: 1px solid rgba(255, 255, 255, 0.08);
       }
       .auth-tab-btn {
-        flex: 1; padding: 8px; border-radius: 7px; border: none; background: transparent;
-        color: #94A3B8; font-weight: 700; font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease;
+        flex: 1; padding: 8px; border-radius: 8px; border: none; background: transparent;
+        color: #94A3B8; font-weight: 700; font-size: 0.8rem; cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       }
       .auth-tab-btn.active {
-        background: linear-gradient(90deg, rgba(0, 242, 254, 0.25), rgba(127, 0, 255, 0.25));
+        background: linear-gradient(90deg, rgba(0, 242, 254, 0.25), rgba(139, 92, 246, 0.25));
         color: #00F2FE; border: 1px solid rgba(0, 242, 254, 0.4);
+        box-shadow: 0 0 14px rgba(0, 242, 254, 0.2);
       }
 
       .demo-section {
-        background: rgba(127, 0, 255, 0.08); border: 1px solid rgba(127, 0, 255, 0.3);
-        border-radius: 12px; padding: 12px; margin-bottom: 16px;
+        background: rgba(139, 92, 246, 0.08); border: 1px solid rgba(139, 92, 246, 0.35);
+        border-radius: 14px; padding: 14px; margin-bottom: 18px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
       }
       .demo-title {
-        font-size: 0.75rem; font-weight: 800; color: #00F2FE;
-        letter-spacing: 0.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+        font-size: 0.72rem; font-weight: 800; color: #00F2FE;
+        letter-spacing: 0.8px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+        text-transform: uppercase; font-family: var(--font-mono);
       }
       .demo-roles-grid {
-        display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+        display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
       }
       .demo-role-btn {
-        padding: 7px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
-        background: rgba(255,255,255,0.05); color: #F1F5F9; font-size: 0.75rem; font-weight: 600;
-        cursor: pointer; text-align: left; transition: all 0.2s ease;
+        padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.04); color: #F1F5F9; font-size: 0.75rem; font-weight: 700;
+        cursor: pointer; text-align: left; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       }
       .demo-role-btn:hover {
-        background: rgba(0, 242, 254, 0.18); border-color: #00F2FE; transform: translateY(-1px);
+        background: rgba(0, 242, 254, 0.2); border-color: #00F2FE; transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4), 0 0 14px rgba(0, 242, 254, 0.3);
       }
 
       .divider {
         display: flex; align-items: center; text-align: center; color: #64748B;
-        font-size: 0.72rem; margin: 14px 0;
+        font-size: 0.72rem; font-family: var(--font-mono); font-weight: 700; margin: 16px 0;
       }
       .divider::before, .divider::after {
-        content: ''; flex: 1; border-bottom: 1px solid rgba(255,255,255,0.1);
+        content: ''; flex: 1; border-bottom: 1px solid rgba(255,255,255,0.08);
       }
-      .divider:not(:empty)::before { margin-right: .5em; }
-      .divider:not(:empty)::after { margin-left: .5em; }
+      .divider:not(:empty)::before { margin-right: .6em; }
+      .divider:not(:empty)::after { margin-left: .6em; }
 
-      #nexusLoginOverlay label { color: #CBD5E1; font-size: 0.775rem; display: block; margin: 8px 0 3px; font-weight: 600; }
+      #nexusLoginOverlay label { color: #CBD5E1; font-size: 0.75rem; display: block; margin: 10px 0 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
       #nexusLoginOverlay input, #nexusLoginOverlay select {
-        width: 100%; box-sizing: border-box; padding: 9px 12px; border-radius: 8px;
-        border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.35); color: #fff; font-size: 0.825rem;
+        width: 100%; box-sizing: border-box; padding: 10px 14px; border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.4); color: #fff; font-size: 0.85rem;
+        transition: all 0.2s ease;
+      }
+      #nexusLoginOverlay input:focus, #nexusLoginOverlay select:focus {
+        border-color: #00F2FE; box-shadow: 0 0 16px rgba(0, 242, 254, 0.3); outline: none;
       }
       #nexusLoginOverlay button.btn-submit {
-        margin-top: 14px; width: 100%; padding: 10px; border: none; border-radius: 8px;
-        background: linear-gradient(90deg, #00F2FE, #7F00FF); color: #fff; font-weight: 700;
-        cursor: pointer; font-size: 0.85rem; box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3);
+        margin-top: 16px; width: 100%; padding: 12px; border: none; border-radius: 10px;
+        background: linear-gradient(135deg, #00F2FE, #8B5CF6); color: #fff; font-weight: 800;
+        cursor: pointer; font-size: 0.88rem; box-shadow: 0 6px 20px rgba(0, 242, 254, 0.35);
+        transition: all 0.2s ease;
+      }
+      #nexusLoginOverlay button.btn-submit:hover {
+        transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0, 242, 254, 0.5);
       }
       #nexusLoginOverlay button:disabled { opacity: 0.6; cursor: default; }
-      #nexusLoginOverlay .error-msg { color: #EF4444; font-size: 0.775rem; margin-top: 8px; min-height: 1.2em; text-align: center; }
+      #nexusLoginOverlay .error-msg { color: #EF4444; font-size: 0.75rem; margin-top: 8px; min-height: 1.2em; text-align: center; font-weight: 600; }
     </style>
     
     <div class="login-card">

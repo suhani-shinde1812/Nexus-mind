@@ -37,8 +37,14 @@
           </svg>
         </div>
         <div class="brand-text">
-          <span class="brand-name">NEXUS<span class="highlight">MIND</span></span>
-          <span class="brand-badge">AI WORKSPACE v2.4</span>
+          <div class="brand-title-row">
+            <span class="brand-name">NEXUS<span class="highlight">MIND</span></span>
+            <span class="brand-badge">ENTERPRISE v2.4</span>
+          </div>
+          <div class="brand-status-row">
+            <span class="pulse-dot-mini green"></span>
+            <span class="brand-cluster-status">CLUSTER ACTIVE • 4 AGENTS SYNCED</span>
+          </div>
         </div>
       </div>
 
@@ -259,6 +265,14 @@
     <!-- FOOTER AI COPILOT LAUNCHER -->
     <footer class="ai-hud-footer glass-panel">
       <form id="aiPromptForm" class="ai-prompt-form">
+        <div class="copilot-quick-chips">
+          <span class="chips-label">AI PROMPTS:</span>
+          <button type="button" class="copilot-chip" data-prompt="What is the Critical Path and project duration?">🏗️ Critical Path</button>
+          <button type="button" class="copilot-chip" data-prompt="Who is overloaded and needs AI workload rebalancing?">⚡ Rebalance Workload</button>
+          <button type="button" class="copilot-chip" data-prompt="Run Monte Carlo simulation forecast for sprint Alpha">🎲 Monte Carlo Risk</button>
+          <button type="button" class="copilot-chip" data-prompt="Which projects are active?">📁 Active Projects</button>
+          <button type="button" class="copilot-chip" data-prompt="Who is working on Authentication?">🔍 Who is on Auth?</button>
+        </div>
         <div class="prompt-input-container">
           <span class="sparkle-icon">✨</span>
           <input type="text" id="aiPromptInput" placeholder="Ask AI Copilot: 'Who is working on Authentication?', 'Which projects are active?', or 'Who is overloaded?'..." />
