@@ -62,15 +62,20 @@ class ApiClient {
     });
 
     // Transparent refresh-on-401, one retry.
-    if (res.status === 401 && auth && this._tokens?.refresh_token && path !== '/api/auth/refresh') {
-      const refreshed = await this._tryRefresh();
-      if (refreshed) {
-        headers['Authorization'] = `Bearer ${this.accessToken}`;
-        res = await fetch(`${API_BASE}${path}`, {
-          method,
-          headers,
-          body: form ? body : body ? JSON.stringify(body) : undefined,
-        });
+    if (res.status === 401 && auth) {
+      if (this._tokens?.refresh_token && path !== '/api/auth/refresh') {
+        const refreshed = await this._tryRefresh();
+        if (refreshed) {
+          headers['Authorization'] = `Bearer ${this.accessToken}`;
+          res = await fetch(`${API_BASE}${path}`, {
+            method,
+            headers,
+            body: form ? body : body ? JSON.stringify(body) : undefined,
+          });
+        }
+      }
+      if (res.status === 401) {
+        this.clearTokens();
       }
     }
 

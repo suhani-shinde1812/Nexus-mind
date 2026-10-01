@@ -48,6 +48,10 @@ export class LiveTaskGraphEngine {
         this.showNodeDrawer(task);
       }
     });
+
+    document.getElementById('btnEmptyGraphCreateTask')?.addEventListener('click', () => {
+      document.getElementById('taskModal')?.classList.remove('hidden');
+    });
   }
 
   initDelegatedEvents() {
@@ -363,6 +367,15 @@ export class LiveTaskGraphEngine {
     if (!this.svg) return;
 
     const state = store.getState();
+    const emptyOverlay = document.getElementById('graphEmptyOverlay');
+
+    if (!state.tasks || state.tasks.length === 0) {
+      if (emptyOverlay) emptyOverlay.classList.remove('hidden');
+      this.svg.innerHTML = '';
+      return;
+    }
+    if (emptyOverlay) emptyOverlay.classList.add('hidden');
+
     let tasks = state.tasks || [];
 
     if (this.viewFilter === 'risk') {

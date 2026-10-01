@@ -246,6 +246,17 @@
           </div>
           <div id="graphCanvasContainer" class="graph-canvas-container full-canvas">
             <svg id="graphSvg" class="graph-svg"></svg>
+            <div id="graphEmptyOverlay" class="graph-empty-overlay hidden">
+              <div class="empty-state-card">
+                <div class="empty-icon-glow">🌐</div>
+                <h3>Workspace Task Graph is Clean</h3>
+                <p>No tasks found in your workspace. Create your first task to start mapping DAG dependencies and critical path risks.</p>
+                <button class="btn btn-primary" id="btnEmptyGraphCreateTask">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  Create Your First Task
+                </button>
+              </div>
+            </div>
             <div class="graph-legend">
               <div class="legend-item"><span class="node-sample done"></span> Completed</div>
               <div class="legend-item"><span class="node-sample progress"></span> In Progress</div>
