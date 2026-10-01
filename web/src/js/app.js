@@ -20,6 +20,7 @@ class NexusApp {
     this.kanbanEngine = null;
     this.ganttEngine = null;
     this.rolePortals = null;
+    this.currentRoute = 'dashboard';
   }
 
   init() {
@@ -28,14 +29,11 @@ class NexusApp {
     this.kanbanEngine = new KanbanEngine('kanbanContainer');
     this.ganttEngine = new GanttEngine('ganttContainer');
 
-    this.rolePortals.render();
-    this.renderCurrentView();
-    this.graphEngine.startPhysicsLoop();
-
+    this.bindSidebarNavigation();
+    this.bindSidebarToggle();
+    this.bindCopilotDrawer();
     this.bindThemeToggler();
     this.bindRoleSelector();
-    this.bindTabNavigation();
-    this.bindViewSwitcher();
     this.bindSearchEngine();
     this.bindAiPromptLauncher();
     this.bindTaskModal();
@@ -45,12 +43,16 @@ class NexusApp {
     this.bindAutoRebalancer();
     this.bindDocumentViewerModal();
     this.bindMeetingModal();
-    this.bindFooterAgentPills();
     this.bindLogoutButton();
 
+    this.graphEngine.startPhysicsLoop();
+
+    // Initial Route Handling from Hash
+    const initialRoute = window.location.hash ? window.location.hash.slice(1) : 'dashboard';
+    this.navigateToRoute(initialRoute);
+
     store.subscribe(() => {
-      this.rolePortals.render();
-      this.renderCurrentView();
+      this.syncActiveRouteRender();
       this.updateNavbarUser();
       this.updateUnreadCount();
       this.renderToasts();
@@ -62,7 +64,7 @@ class NexusApp {
     this.renderToasts();
     this.syncThemeUI();
     window.nexusApp = this;
-    console.log('🚀 Nexus Mind Autonomous Platform Online!');
+    console.log('🚀 Nexus Mind Enterprise Multi-Page Workspace Online!');
   }
 
   async approveProposal(propId) {
@@ -84,59 +86,130 @@ class NexusApp {
     }
   }
 
+  // --- Multi-Page Router & Navigation ---
+  bindSidebarNavigation() {
+    window.addEventListener('hashchange', () => {
+      const route = window.location.hash ? window.location.hash.slice(1) : 'dashboard';
+      this.navigateToRoute(route);
+    });
 
-  // --- Multi-View Matrix Rendering ---
+    document.querySelectorAll('.sidebar-nav-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        const page = item.getAttribute('data-page');
+        if (page) {
+          window.location.hash = '#' + page;
+        }
+      });
+    });
+  }
+
+  bindSidebarToggle() {
+    const sidebar = document.getElementById('appSidebar');
+    const toggleBtn = document.getElementById('btnToggleSidebar');
+    const mobileBtn = document.getElementById('btnMobileSidebar');
+
+    if (toggleBtn && sidebar) {
+      toggleBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+      });
+    }
+
+    if (mobileBtn && sidebar) {
+      mobileBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+      });
+    }
+  }
+
+  navigateToRoute(routeName) {
+    const rawRoute = (routeName || 'dashboard').toLowerCase().trim();
+    const route = rawRoute === 'overview' ? 'dashboard' : rawRoute;
+    this.currentRoute = route;
+
+    const ROUTE_TITLES = {
+      dashboard: 'Executive Dashboard',
+      kanban: '5-Column Kanban Board',
+      graph: 'Live Task Graph',
+      timeline: 'Project Gantt Timeline',
+      tasks: 'All Tasks & Work Queue',
+      agents: 'Autonomous Swarm War Room',
+      simulation: 'What-If Monte Carlo Sandbox',
+      analytics: 'Analytics & Velocity Telemetry',
+      knowledge: 'RAG Knowledge Center',
+      meetings: 'Meeting Intelligence & Bridge',
+      activity: 'Compliance & Security Audit Trail'
+    };
+
+    // 1. Update breadcrumb
+    const breadcrumbEl = document.getElementById('headerBreadcrumbCurrent');
+    if (breadcrumbEl) {
+      breadcrumbEl.textContent = ROUTE_TITLES[route] || 'Executive Dashboard';
+    }
+
+    // 2. Update active sidebar item
+    document.querySelectorAll('.sidebar-nav-item').forEach(item => {
+      if (item.getAttribute('data-page') === route) {
+        item.classList.add('active');
+      } else {
+        item.classList.remove('active');
+      }
+    });
+
+    // 3. Stage switching (Dedicated 100% full-width viewports)
+    const stagePortal = document.getElementById('page-portal');
+    const stageGraph = document.getElementById('page-graph');
+    const stageKanban = document.getElementById('page-kanban');
+    const stageTimeline = document.getElementById('page-timeline');
+
+    stagePortal?.classList.add('hidden');
+    stageGraph?.classList.add('hidden');
+    stageKanban?.classList.add('hidden');
+    stageTimeline?.classList.add('hidden');
+
+    if (route === 'graph') {
+      stageGraph?.classList.remove('hidden');
+      this.graphEngine.render();
+    } else if (route === 'kanban') {
+      stageKanban?.classList.remove('hidden');
+      this.kanbanEngine.render();
+    } else if (route === 'timeline') {
+      stageTimeline?.classList.remove('hidden');
+      this.ganttEngine.render();
+    } else {
+      // Portal-rendered tabs: dashboard, tasks, agents, simulation, analytics, knowledge, meetings, activity
+      stagePortal?.classList.remove('hidden');
+      const tabName = route === 'dashboard' ? 'overview' : route;
+      this.rolePortals.setTab(tabName);
+    }
+
+    // Close mobile drawer if opened
+    document.getElementById('appSidebar')?.classList.remove('open');
+  }
+
+  syncActiveRouteRender() {
+    if (this.currentRoute === 'graph') {
+      this.graphEngine.render();
+    } else if (this.currentRoute === 'kanban') {
+      this.kanbanEngine.render();
+    } else if (this.currentRoute === 'timeline') {
+      this.ganttEngine.render();
+    } else {
+      this.rolePortals.render();
+    }
+  }
+
   bindViewSwitcher() {
-    const viewBtns = document.querySelectorAll('.view-tab-btn');
-    viewBtns.forEach(btn => {
+    // Kept for backward compatibility
+    document.querySelectorAll('.view-tab-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const view = e.currentTarget.getAttribute('data-view');
-        store.setView(view);
+        window.location.hash = '#' + view;
       });
     });
   }
 
   renderCurrentView() {
-    const state = store.getState();
-    const view = state.currentView || 'graph';
-
-    const graphContainer = document.getElementById('graphCanvasContainer');
-    const kanbanContainer = document.getElementById('kanbanContainer');
-    const ganttContainer = document.getElementById('ganttContainer');
-    const graphToolbar = document.getElementById('graphSpecificToolbar');
-    const viewSubtitle = document.getElementById('viewSubtitle');
-
-    // Update switcher active tab
-    document.querySelectorAll('.view-tab-btn').forEach(btn => {
-      if (btn.getAttribute('data-view') === view) btn.classList.add('active');
-      else btn.classList.remove('active');
-    });
-
-    if (view === 'graph') {
-      if (graphContainer) graphContainer.classList.remove('hidden');
-      if (kanbanContainer) kanbanContainer.classList.add('hidden');
-      if (ganttContainer) ganttContainer.classList.add('hidden');
-      if (graphToolbar) graphToolbar.classList.remove('hidden');
-      if (viewSubtitle) viewSubtitle.textContent = 'Single Source of Truth • Drag node port to link dependencies';
-      this.graphEngine.render();
-    } else if (view === 'kanban') {
-      if (graphContainer) graphContainer.classList.add('hidden');
-      if (kanbanContainer) kanbanContainer.classList.remove('hidden');
-      if (ganttContainer) ganttContainer.classList.add('hidden');
-      if (graphToolbar) graphToolbar.classList.add('hidden');
-      if (viewSubtitle) viewSubtitle.textContent = 'Interactive Drag & Drop Board • Backlog to Completed';
-      // Clean up CPM side panel if it was mounted on the graph container
-      document.getElementById('cpmSidePanel')?.remove();
-      this.kanbanEngine.render();
-    } else if (view === 'timeline') {
-      if (graphContainer) graphContainer.classList.add('hidden');
-      if (kanbanContainer) kanbanContainer.classList.add('hidden');
-      if (ganttContainer) ganttContainer.classList.remove('hidden');
-      if (graphToolbar) graphToolbar.classList.add('hidden');
-      if (viewSubtitle) viewSubtitle.textContent = 'Critical Path Schedule & Milestone Durations';
-      document.getElementById('cpmSidePanel')?.remove();
-      this.ganttEngine.render();
-    }
+    this.syncActiveRouteRender();
   }
 
   // --- Toasts Rendering ---
@@ -341,9 +414,46 @@ class NexusApp {
     });
   }
 
+  bindCopilotDrawer() {
+    const floatBtn = document.getElementById('btnFloatingCopilot');
+    const drawer = document.getElementById('aiCopilotDrawer');
+    const closeBtn = document.getElementById('btnCloseCopilotDrawer');
+
+    if (floatBtn && drawer) {
+      floatBtn.addEventListener('click', () => {
+        drawer.classList.toggle('hidden');
+        if (!drawer.classList.contains('hidden')) {
+          document.getElementById('aiPromptInput')?.focus();
+        }
+      });
+    }
+
+    if (closeBtn && drawer) {
+      closeBtn.addEventListener('click', () => {
+        drawer.classList.add('hidden');
+      });
+    }
+
+    // Keyboard shortcut: Ctrl+K or Ctrl+Space to toggle AI Copilot Drawer
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K' || e.code === 'Space')) {
+        const activeTag = document.activeElement ? document.activeElement.tagName : '';
+        if (activeTag !== 'INPUT' && activeTag !== 'TEXTAREA') {
+          e.preventDefault();
+          drawer?.classList.toggle('hidden');
+          if (!drawer?.classList.contains('hidden')) {
+            document.getElementById('aiPromptInput')?.focus();
+          }
+        }
+      }
+    });
+  }
+
   bindAiPromptLauncher() {
     const promptForm = document.getElementById('aiPromptForm');
     const promptInput = document.getElementById('aiPromptInput');
+    const copilotDrawer = document.getElementById('aiCopilotDrawer');
+    const copilotFeed = document.getElementById('copilotFeed');
     const chatModal = document.getElementById('aiChatModal');
     const chatMessages = document.getElementById('chatMessages');
     const closeChatModal = document.getElementById('btnCloseChatModal');
@@ -364,84 +474,111 @@ class NexusApp {
 
     const handlePromptSubmit = async (userText) => {
       if (!userText.trim()) return;
-      if (!chatMessages) return;
 
+      // Ensure slide-over copilot drawer is visible
+      if (copilotDrawer) {
+        copilotDrawer.classList.remove('hidden');
+      }
+
+      // 1. Append User Message
       const userDiv = document.createElement('div');
       userDiv.className = 'chat-message user';
       userDiv.innerHTML = `<div class="msg-bubble">${formatMarkdown(userText)}</div>`;
-      chatMessages.appendChild(userDiv);
+      
+      if (copilotFeed) {
+        copilotFeed.appendChild(userDiv.cloneNode(true));
+        copilotFeed.scrollTop = copilotFeed.scrollHeight;
+      }
+      if (chatMessages) {
+        chatMessages.appendChild(userDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
 
+      // 2. Append Assistant Loading Bubble
       const assistantDiv = document.createElement('div');
       assistantDiv.className = 'chat-message assistant';
       assistantDiv.innerHTML = `
-        <div class="msg-avatar">🤖</div>
-        <div class="msg-bubble"><em>Evaluating workspace telemetry & database...</em></div>
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px; font-weight:700; color:var(--cyan-primary);">
+          <span>⚡ Nexus Agent Swarm</span>
+        </div>
+        <div class="msg-bubble"><em>Evaluating workspace telemetry, task graph &amp; database...</em></div>
       `;
-      chatMessages.appendChild(assistantDiv);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
 
-      if (chatModal) chatModal.classList.remove('hidden');
+      let drawerAssistantDiv = null;
+      if (copilotFeed) {
+        drawerAssistantDiv = assistantDiv.cloneNode(true);
+        copilotFeed.appendChild(drawerAssistantDiv);
+        copilotFeed.scrollTop = copilotFeed.scrollHeight;
+      }
+      if (chatMessages) {
+        chatMessages.appendChild(assistantDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
 
       try {
         const response = await assistantAgent.processPromptAsync(userText);
-        const bubble = assistantDiv.querySelector('.msg-bubble');
-        if (bubble && response) {
-          let html = `<div style="font-size:0.75rem; font-weight:bold; color:var(--cyan-primary); margin-bottom:4px;">⚡ ${response.agent || 'Nexus Agent Swarm'}</div>`;
-          html += `<div>${formatMarkdown(response.message)}</div>`;
+        
+        let html = `<div style="font-size:0.75rem; font-weight:bold; color:var(--cyan-primary); margin-bottom:4px;">⚡ ${response?.agent || 'Nexus Agent Swarm'}</div>`;
+        html += `<div>${formatMarkdown(response?.message || 'Request processed.')}</div>`;
 
-          // If Proposal Present
-          if (response.proposal) {
-            const p = response.proposal;
-            html += `
-              <div class="ai-proposal-card" style="margin-top:10px; padding:10px; border:1px solid var(--cyan-primary); border-radius:8px; background:rgba(0,242,254,0.05);">
-                <div style="font-weight:bold; font-size:0.8rem; color:#F59E0B;">🛡️ Human-in-the-Loop Proposal (${p.id})</div>
-                <div style="font-size:0.75rem; margin-top:4px; color:#CBD5E1;">${p.reason}</div>
-                <div style="margin-top:8px; display:flex; gap:8px;">
-                  <button class="btn btn-sm btn-primary" onclick="window.nexusApp?.approveProposal('${p.id}')">✓ Approve Action</button>
-                  <button class="btn btn-sm btn-secondary" onclick="window.nexusApp?.rejectProposal('${p.id}')">✕ Dismiss</button>
-                </div>
+        // Proposal Card
+        if (response && response.proposal) {
+          const p = response.proposal;
+          html += `
+            <div class="ai-proposal-card" style="margin-top:10px; padding:10px; border:1px solid var(--cyan-primary); border-radius:8px; background:rgba(0,242,254,0.05);">
+              <div style="font-weight:bold; font-size:0.8rem; color:#F59E0B;">🛡️ Human-in-the-Loop Proposal (${p.id})</div>
+              <div style="font-size:0.75rem; margin-top:4px; color:#CBD5E1;">${p.reason}</div>
+              <div style="margin-top:8px; display:flex; gap:8px;">
+                <button class="btn btn-xs btn-primary" onclick="window.nexusApp?.approveProposal('${p.id}')">✓ Approve Action</button>
+                <button class="btn btn-xs btn-secondary" onclick="window.nexusApp?.rejectProposal('${p.id}')">✕ Dismiss</button>
               </div>
-            `;
-          }
+            </div>
+          `;
+        }
 
-          // If Decision Trace Present
-          if (response.trace && response.trace.intent) {
-            html += `
-              <details style="margin-top:8px; font-size:0.72rem; color:#94A3B8; border-top:1px solid rgba(255,255,255,0.08); padding-top:4px;">
-                <summary style="cursor:pointer; color:var(--cyan-primary);">🔍 Agent Execution Trace (${response.trace.intent})</summary>
-                <div style="margin-top:4px; padding:4px 8px; background:rgba(0,0,0,0.3); border-radius:4px;">
-                  <div>• <strong>Intent</strong>: ${response.trace.intent}</div>
-                  <div>• <strong>Tools Executed</strong>: ${response.trace.tools_executed?.join(', ') || 'None'}</div>
-                  ${response.trace.evidence ? `<div>• <strong>Evidence</strong>: ${response.trace.evidence}</div>` : ''}
-                </div>
-              </details>
-            `;
-          }
+        // Decision Trace
+        if (response && response.trace && response.trace.intent) {
+          html += `
+            <details style="margin-top:8px; font-size:0.72rem; color:#94A3B8; border-top:1px solid rgba(255,255,255,0.08); padding-top:4px;">
+              <summary style="cursor:pointer; color:var(--cyan-primary);">🔍 Agent Execution Trace (${response.trace.intent})</summary>
+              <div style="margin-top:4px; padding:4px 8px; background:rgba(0,0,0,0.3); border-radius:4px;">
+                <div>• <strong>Intent</strong>: ${response.trace.intent}</div>
+                <div>• <strong>Tools Executed</strong>: ${response.trace.tools_executed?.join(', ') || 'None'}</div>
+                ${response.trace.evidence ? `<div>• <strong>Evidence</strong>: ${response.trace.evidence}</div>` : ''}
+              </div>
+            </details>
+          `;
+        }
 
-          bubble.innerHTML = html;
+        if (drawerAssistantDiv) {
+          drawerAssistantDiv.innerHTML = html;
+          copilotFeed.scrollTop = copilotFeed.scrollHeight;
+        }
+        const modalBubble = assistantDiv.querySelector('.msg-bubble');
+        if (modalBubble) {
+          modalBubble.innerHTML = html;
+        }
 
-          if (response.agent && response.trace) {
-            store.logSwarmActivity(
-              response.agent,
-              response.trace.intent || 'Query Execution',
-              response.trace.evidence || (response.message ? response.message.substring(0, 90) : 'Executed database query'),
-              'Active',
-              response.trace.tools_executed?.join(', ') || null,
-              response.trace
-            );
-          }
+        if (response && response.agent && response.trace) {
+          store.logSwarmActivity(
+            response.agent,
+            response.trace.intent || 'Query Execution',
+            response.trace.evidence || (response.message ? response.message.substring(0, 90) : 'Executed database query'),
+            'Active',
+            response.trace.tools_executed?.join(', ') || null,
+            response.trace
+          );
         }
       } catch (err) {
-        const bubble = assistantDiv.querySelector('.msg-bubble');
-        if (bubble) {
-          const fallback = assistantAgent.processSmartRuleEngine(userText);
-          bubble.innerHTML = formatMarkdown(fallback.message);
-        }
+        const errorHtml = `<span style="color:#EF4444;">Error processing request: ${err.message}</span>`;
+        if (drawerAssistantDiv) drawerAssistantDiv.innerHTML = errorHtml;
+        const modalBubble = assistantDiv.querySelector('.msg-bubble');
+        if (modalBubble) modalBubble.innerHTML = errorHtml;
       }
 
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+      if (copilotFeed) copilotFeed.scrollTop = copilotFeed.scrollHeight;
+      if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
     };
-
 
     if (promptForm && promptInput) {
       promptForm.addEventListener('submit', (e) => {
@@ -450,18 +587,18 @@ class NexusApp {
         promptInput.value = '';
         handlePromptSubmit(text);
       });
-
-      // Quick Prompt Chips
-      document.querySelectorAll('.copilot-chip').forEach(chip => {
-        chip.addEventListener('click', (e) => {
-          e.preventDefault();
-          const prompt = chip.getAttribute('data-prompt');
-          if (prompt) {
-            handlePromptSubmit(prompt);
-          }
-        });
-      });
     }
+
+    // Quick Prompt Chips in Drawer & Header
+    document.querySelectorAll('.copilot-chip').forEach(chip => {
+      chip.addEventListener('click', (e) => {
+        e.preventDefault();
+        const prompt = chip.getAttribute('data-prompt');
+        if (prompt) {
+          handlePromptSubmit(prompt);
+        }
+      });
+    });
 
     if (btnSendChat && chatInput) {
       btnSendChat.addEventListener('click', () => {

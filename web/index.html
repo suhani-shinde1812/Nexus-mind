@@ -12,277 +12,332 @@
 </head>
 <body class="theme-dark">
   <div id="app" class="app-container hidden">
-    <!-- TOP NAVIGATION BAR -->
-    <header class="navbar">
-      <div class="nav-brand">
-        <div class="brand-logo">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="url(#logo-grad1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M2 17L12 22L22 17" stroke="url(#logo-grad2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M2 12L12 17L22 12" stroke="url(#logo-grad3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <defs>
-              <linearGradient id="logo-grad1" x1="2" y1="2" x2="22" y2="12" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#00F2FE"/>
-                <stop offset="1" stop-color="#4FACFE"/>
-              </linearGradient>
-              <linearGradient id="logo-grad2" x1="2" y1="17" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#7F00FF"/>
-                <stop offset="1" stop-color="#E100FF"/>
-              </linearGradient>
-              <linearGradient id="logo-grad3" x1="2" y1="12" x2="22" y2="17" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#00F2FE"/>
-                <stop offset="1" stop-color="#7F00FF"/>
-              </linearGradient>
-            </defs>
-          </svg>
-        </div>
-        <div class="brand-text">
-          <div class="brand-title-row">
-            <span class="brand-name">NEXUS<span class="highlight">MIND</span></span>
-            <span class="brand-badge">ENTERPRISE v2.4</span>
+    <!-- 1. LEFT SIDEBAR NAVIGATION -->
+    <aside class="app-sidebar" id="appSidebar">
+      <!-- Brand & Cluster Badge -->
+      <div class="sidebar-brand">
+        <div class="brand-identity">
+          <div class="brand-logo">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="url(#logo-grad1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M2 17L12 22L22 17" stroke="url(#logo-grad2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M2 12L12 17L22 12" stroke="url(#logo-grad3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <defs>
+                <linearGradient id="logo-grad1" x1="2" y1="2" x2="22" y2="12" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#00F2FE"/>
+                  <stop offset="1" stop-color="#4FACFE"/>
+                </linearGradient>
+                <linearGradient id="logo-grad2" x1="2" y1="17" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#7F00FF"/>
+                  <stop offset="1" stop-color="#E100FF"/>
+                </linearGradient>
+                <linearGradient id="logo-grad3" x1="2" y1="12" x2="22" y2="17" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#00F2FE"/>
+                  <stop offset="1" stop-color="#7F00FF"/>
+                </linearGradient>
+              </defs>
+            </svg>
           </div>
-          <div class="brand-status-row">
-            <span class="pulse-dot-mini green"></span>
-            <span class="brand-cluster-status">CLUSTER ACTIVE • 4 AGENTS SYNCED</span>
+          <div class="brand-info">
+            <span class="brand-title">NEXUS<span class="highlight">MIND</span></span>
+            <span class="brand-tier-badge">ENTERPRISE</span>
           </div>
         </div>
-      </div>
-
-      <!-- UNIFIED AI SEARCH BAR -->
-      <div class="nav-search-container">
-        <div class="search-input-wrapper">
-          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input type="text" id="globalSearchInput" placeholder="AI Search tasks (101, 108), docs, policies... (Press '/')" />
-          <kbd class="search-shortcut">/</kbd>
-        </div>
-        <div id="searchResultsDropdown" class="search-dropdown hidden"></div>
-      </div>
-
-      <!-- ROLE SELECTOR & ACTION HUD -->
-      <div class="nav-actions">
-        <!-- Theme Toggle Switch -->
-        <button id="btnToggleTheme" class="theme-toggle-btn" title="Toggle Dark/Light Theme Mode">
-          <span id="themeToggleIcon">🌙</span>
-          <span id="themeToggleText">Dark</span>
+        <button id="btnToggleSidebar" class="sidebar-toggle-btn" title="Toggle Sidebar Width">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
         </button>
+      </div>
 
-        <!-- Role Selector Pill -->
-        <div class="role-selector-wrapper">
-          <label for="roleSelect" class="role-label">VIEW AS:</label>
+      <!-- Cluster Live Status -->
+      <div class="sidebar-status">
+        <span class="pulse-dot-mini green"></span>
+        <span class="cluster-status-text">CLUSTER ACTIVE • 4 AGENTS</span>
+      </div>
+
+      <!-- Primary Sidebar Navigation Menu -->
+      <nav class="sidebar-nav" id="sidebarNav">
+        <div class="nav-group-title">WORKSPACE</div>
+        <a href="#dashboard" class="sidebar-nav-item active" data-page="dashboard" title="Executive Dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          <span>Dashboard</span>
+        </a>
+        <a href="#kanban" class="sidebar-nav-item" data-page="kanban" title="5-Column Kanban Board">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"></rect><rect x="10" y="3" width="5" height="12" rx="1"></rect><rect x="17" y="3" width="5" height="15" rx="1"></rect></svg>
+          <span>Kanban Board</span>
+        </a>
+        <a href="#graph" class="sidebar-nav-item" data-page="graph" title="Interactive Task Graph">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="3"></circle><circle cx="19" cy="6" r="3"></circle><circle cx="12" cy="18" r="3"></circle><line x1="7.5" y1="7.5" x2="16.5" y2="7.5"></line><line x1="6.5" y1="8.5" x2="10.5" y2="15.5"></line><line x1="17.5" y1="8.5" x2="13.5" y2="15.5"></line></svg>
+          <span>Live Task Graph</span>
+        </a>
+        <a href="#timeline" class="sidebar-nav-item" data-page="timeline" title="Gantt Milestone Schedule">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="13" y2="6"></line><line x1="7" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="17" y2="18"></line></svg>
+          <span>Gantt Timeline</span>
+        </a>
+        <a href="#tasks" class="sidebar-nav-item" data-page="tasks" title="Structured Task Matrix">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          <span>All Tasks</span>
+        </a>
+
+        <div class="nav-group-title">AI &amp; OPERATIONS</div>
+        <a href="#agents" class="sidebar-nav-item" data-page="agents" title="Autonomous Swarm War Room">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+          <span>War Room Swarm</span>
+        </a>
+        <a href="#simulation" class="sidebar-nav-item" data-page="simulation" title="Monte Carlo What-If Sandbox">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          <span>What-If Simulator</span>
+        </a>
+        <a href="#analytics" class="sidebar-nav-item" data-page="analytics" title="Velocity & Capacity Telemetry">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          <span>Analytics &amp; KPIs</span>
+        </a>
+        <a href="#knowledge" class="sidebar-nav-item" data-page="knowledge" title="RAG Knowledge Center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          <span>Knowledge Hub</span>
+        </a>
+        <a href="#meetings" class="sidebar-nav-item" data-page="meetings" title="WebRTC Meeting Intelligence">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <span>Meetings</span>
+        </a>
+        <a href="#activity" class="sidebar-nav-item" data-page="activity" title="Compliance & Security Audit Trail">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span>Security Audit</span>
+        </a>
+      </nav>
+
+      <!-- Sidebar Footer: Role & User -->
+      <div class="sidebar-footer">
+        <div class="sidebar-role-select-box">
+          <label for="roleSelect">VIEW AS:</label>
           <select id="roleSelect" class="role-select">
-            <option value="employee">👨‍💻 Employee Workspace</option>
-            <option value="team_lead" selected>👩‍💼 Team Lead Portal</option>
-            <option value="project_manager">📊 Project Manager Portal</option>
-            <option value="admin">🛡️ Administrator Console</option>
+            <option value="employee">👨‍💻 Employee</option>
+            <option value="team_lead" selected>👩‍💼 Team Lead</option>
+            <option value="project_manager">📊 Project Manager</option>
+            <option value="admin">🛡️ Administrator</option>
           </select>
         </div>
 
-        <!-- Trigger AI Scan -->
-        <button id="btnRunAiScan" class="btn btn-gradient btn-sm glow-cyan" title="Run AI Monitoring Risk Scan">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-          </svg>
-          <span>Run AI Risk Scan</span>
-        </button>
-
-        <!-- AI Auto Rebalance Workload Button -->
-        <button id="btnAutoRebalanceNav" class="btn btn-ghost btn-sm glow-purple" title="AI Auto-Rebalance Team Workload">
-          ⚡ AI Rebalance
-        </button>
-
-        <!-- Alerts Bell -->
-        <button id="btnNotifications" class="icon-btn relative" title="View Notifications & AI Risk Drawer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-          </svg>
-          <span id="unreadCount" class="badge-count">0</span>
-        </button>
-
-        <!-- User Profile Pill -->
-        <div class="user-pill" id="userProfilePill">
-          <div class="user-avatar" id="navUserAvatar">NM</div>
-          <div class="user-info">
-            <span class="user-name" id="navUserName">Workspace User</span>
-            <span class="user-role-badge" id="navUserRole">Member</span>
+        <div class="sidebar-user-row">
+          <div class="user-pill" id="userProfilePill">
+            <div class="user-avatar" id="navUserAvatar">NM</div>
+            <div class="user-info">
+              <span class="user-name" id="navUserName">Workspace User</span>
+              <span class="user-role-badge" id="navUserRole">Member</span>
+            </div>
           </div>
+          <button id="btnLogoutNav" class="icon-btn" title="Sign Out" style="color: #F87171; border-color: rgba(239,68,68,0.3); width: 30px; height: 30px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          </button>
         </div>
-
-        <!-- Sign Out / Switch Account Button -->
-        <button id="btnLogoutNav" class="btn btn-ghost btn-xs" title="Sign Out or Switch Account" style="color: #F87171; border-color: rgba(239, 68, 68, 0.35); display: flex; align-items: center; gap: 4px;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-          <span>Sign Out</span>
-        </button>
       </div>
-    </header>
+    </aside>
 
-    <!-- SYSTEM ALERTS BANNER -->
-    <div id="aiAlertsBanner" class="alerts-banner hidden">
-      <div class="alert-content">
-        <span class="alert-icon">⚠️</span>
-        <span class="alert-text" id="alertText">AI Monitoring Agent detected 2 high-risk dependency bottlenecks on Critical Path!</span>
+    <!-- 2. MAIN APPLICATION CONTENT WRAPPER -->
+    <div class="app-main-wrapper">
+      <!-- TOP APPLICATION HEADER -->
+      <header class="app-header">
+        <div class="header-left">
+          <button id="btnMobileSidebar" class="mobile-menu-btn" title="Toggle Navigation">☰</button>
+          <div class="header-breadcrumbs">
+            <span class="breadcrumb-app">Nexus Mind</span>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current" id="headerBreadcrumbCurrent">Executive Dashboard</span>
+          </div>
+        </div>
+
+        <!-- UNIFIED AI SEARCH BAR -->
+        <div class="nav-search-container">
+          <div class="search-input-wrapper">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="globalSearchInput" placeholder="Search tasks, docs, policies... (Press '/')" />
+            <kbd class="search-shortcut">/</kbd>
+          </div>
+          <div id="searchResultsDropdown" class="search-dropdown hidden"></div>
+        </div>
+
+        <!-- HEADER QUICK ACTION HUD -->
+        <div class="header-actions">
+          <button id="btnCreateTaskModal" class="btn btn-primary btn-sm glow-cyan" title="Create New Task">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>New Task</span>
+          </button>
+
+          <button id="btnRunAiScan" class="btn btn-gradient btn-sm glow-cyan" title="Run AI Monitoring Risk Scan">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+            </svg>
+            <span>AI Risk Scan</span>
+          </button>
+
+          <button id="btnAutoRebalanceNav" class="btn btn-ghost btn-sm glow-purple" title="AI Auto-Rebalance Team Workload">
+            ⚡ Rebalance
+          </button>
+
+          <!-- Theme Toggle Switch -->
+          <button id="btnToggleTheme" class="theme-toggle-btn" title="Toggle Dark/Light Mode">
+            <span id="themeToggleIcon">🌙</span>
+            <span id="themeToggleText" style="display:none;">Dark</span>
+          </button>
+
+          <!-- Notifications Bell -->
+          <button id="btnNotifications" class="icon-btn relative" title="View Notifications">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <span id="unreadCount" class="badge-count">0</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- SYSTEM ALERTS BANNER -->
+      <div id="aiAlertsBanner" class="alerts-banner hidden">
+        <div class="alert-content">
+          <span class="alert-icon">⚠️</span>
+          <span class="alert-text" id="alertText">AI Monitoring Agent detected dependency bottlenecks on Critical Path!</span>
+        </div>
+        <button class="btn btn-ghost btn-xs" id="btnViewRiskDetails">View Risk Graph</button>
+        <button class="close-alert" id="btnCloseAlert">&times;</button>
       </div>
-      <button class="btn btn-ghost btn-xs" id="btnViewRiskDetails">View Risk Graph</button>
-      <button class="close-alert" id="btnCloseAlert">&times;</button>
-    </div>
 
-    <!-- MAIN CONTENT LAYOUT -->
-    <main class="main-layout">
-      <!-- LEFT SIDEBAR / PORTAL PANEL -->
-      <section class="portal-section glass-panel">
-        <div class="portal-header">
-          <div class="portal-title-area">
-            <h1 id="portalTitle" class="portal-title">Team Lead Portal</h1>
-            <p id="portalSub" class="portal-subtitle">Managing Sprint Alpha • 8 Active Engineers • 3 Blocked Tasks</p>
-          </div>
-          <div class="portal-header-actions">
-            <button id="btnCreateTaskModal" class="btn btn-primary btn-sm">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-              <span>New Task</span>
-            </button>
-          </div>
-        </div>
+      <!-- FULL-WIDTH DEDICATED PAGE VIEWPORT -->
+      <main class="page-viewport" id="pageViewport">
+        <!-- PAGE 1: DEDICATED PORTAL CONTENT (Dashboard, Tasks, War Room, Simulator, Analytics, Meetings, Knowledge, Audit) -->
+        <section id="page-portal" class="page-stage">
+          <div id="portalTabContent" class="portal-tab-content full-portal"></div>
+        </section>
 
-        <!-- Navigation Tabs -->
-        <div class="portal-tabs">
-          <button class="tab-btn active" data-tab="overview">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-            Dashboard
-          </button>
-          <button class="tab-btn" data-tab="tasks">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-            Tasks
-          </button>
-          <button class="tab-btn" data-tab="agents">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
-            War Room
-          </button>
-          <button class="tab-btn" data-tab="simulation">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-            Simulator
-          </button>
-          <button class="tab-btn" data-tab="analytics">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-            Analytics
-          </button>
-          <button class="tab-btn" data-tab="meetings">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-            Meetings
-          </button>
-          <button class="tab-btn" data-tab="knowledge">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-            Knowledge
-          </button>
-          <button class="tab-btn" data-tab="activity">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-            Audit Trail
-          </button>
-        </div>
-
-        <div id="portalTabContent" class="portal-tab-content">
-          <!-- Dynamic Content -->
-        </div>
-      </section>
-
-      <!-- RIGHT SIDE: MULTI-VIEW WORKSPACE MATRIX (GRAPH, KANBAN, GANTT) -->
-      <section class="graph-section glass-panel">
-        <div class="graph-header">
-          <div class="graph-title-area">
-            <!-- Multi-View Selector Tabs -->
-            <div class="view-switcher-group">
-              <button class="view-tab-btn active" data-view="graph">⚡ Live Graph</button>
-              <button class="view-tab-btn" data-view="kanban">📋 Kanban Board</button>
-              <button class="view-tab-btn" data-view="timeline">📅 Gantt Timeline</button>
+        <!-- PAGE 2: FULL-WIDTH INTERACTIVE TASK GRAPH -->
+        <section id="page-graph" class="page-stage hidden">
+          <div class="stage-header">
+            <div class="stage-title-area">
+              <h2 class="stage-title">⚡ Interactive Force Graph</h2>
+              <span class="stage-subtitle">Single source of truth • Drag node port to link dependencies • Critical Path CPM overlay</span>
             </div>
-            <span class="graph-subtitle" id="viewSubtitle">Single Source of Truth • Drag node port to link dependencies</span>
-          </div>
-
-          <div class="graph-toolbar" id="graphSpecificToolbar">
-            <div class="graph-filter-group">
-              <button class="graph-filter-btn active" data-filter="all">All Nodes</button>
-              <button class="graph-filter-btn risk-only" data-filter="risk">
-                <span class="risk-dot"></span> High Risk
-              </button>
-              <button class="graph-filter-btn" data-filter="critical">Critical Path</button>
-            </div>
-            
-            <div class="graph-action-group">
-              <button id="btnGraphReset" class="icon-btn" title="Reset View Canvas">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-              </button>
-              <button id="btnGraphZoomIn" class="icon-btn" title="Zoom In">+</button>
-              <button id="btnGraphZoomOut" class="icon-btn" title="Zoom Out">-</button>
-              <button id="btnTogglePhysics" class="btn btn-ghost btn-xs glow-purple" title="Toggle Auto Node Physics">
-                <span>Physics: ON</span>
-              </button>
-              <button id="btnToggleCpm" class="btn btn-ghost btn-xs" title="Toggle CPM Critical Path Overlay"
-                style="border-color:rgba(255,215,0,0.4); color:#FFD700;">
-                🏗️ CPM
-              </button>
+            <div class="graph-toolbar" id="graphSpecificToolbar">
+              <div class="graph-filter-group">
+                <button class="graph-filter-btn active" data-filter="all">All Nodes</button>
+                <button class="graph-filter-btn risk-only" data-filter="risk">
+                  <span class="risk-dot"></span> High Risk
+                </button>
+                <button class="graph-filter-btn" data-filter="critical">Critical Path</button>
+              </div>
+              <div class="graph-action-group">
+                <button id="btnGraphReset" class="icon-btn" title="Reset View Canvas">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                </button>
+                <button id="btnGraphZoomIn" class="icon-btn" title="Zoom In">+</button>
+                <button id="btnGraphZoomOut" class="icon-btn" title="Zoom Out">-</button>
+                <button id="btnTogglePhysics" class="btn btn-ghost btn-xs glow-purple" title="Toggle Auto Node Physics">
+                  <span>Physics: ON</span>
+                </button>
+                <button id="btnToggleCpm" class="btn btn-ghost btn-xs" title="Toggle CPM Critical Path Overlay"
+                  style="border-color:rgba(255,215,0,0.4); color:#FFD700;">
+                  🏗️ CPM
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-
-        <!-- 1. LIVE GRAPH CONTAINER -->
-        <div id="graphCanvasContainer" class="graph-canvas-container">
-          <svg id="graphSvg" class="graph-svg"></svg>
-          
-          <div class="graph-legend">
-            <div class="legend-item"><span class="node-sample done"></span> Completed</div>
-            <div class="legend-item"><span class="node-sample progress"></span> In Progress</div>
-            <div class="legend-item"><span class="node-sample blocked"></span> Blocked</div>
-            <div class="legend-item"><span class="node-sample risk"></span> AI Risk Halo</div>
-            <div class="legend-item"><span class="edge-sample dep"></span> Dependency Vector</div>
+          <div id="graphCanvasContainer" class="graph-canvas-container full-canvas">
+            <svg id="graphSvg" class="graph-svg"></svg>
+            <div class="graph-legend">
+              <div class="legend-item"><span class="node-sample done"></span> Completed</div>
+              <div class="legend-item"><span class="node-sample progress"></span> In Progress</div>
+              <div class="legend-item"><span class="node-sample blocked"></span> Blocked</div>
+              <div class="legend-item"><span class="node-sample risk"></span> AI Risk Halo</div>
+              <div class="legend-item"><span class="edge-sample dep"></span> Dependency Vector</div>
+            </div>
+            <div id="graphTooltip" class="graph-tooltip hidden"></div>
           </div>
+        </section>
 
-          <div id="graphTooltip" class="graph-tooltip hidden"></div>
-        </div>
+        <!-- PAGE 3: FULL-WIDTH 5-COLUMN KANBAN BOARD -->
+        <section id="page-kanban" class="page-stage hidden">
+          <div class="stage-header">
+            <div class="stage-title-area">
+              <h2 class="stage-title">📋 5-Column Kanban Board</h2>
+              <span class="stage-subtitle">Fluid drag &amp; drop cards across Backlog, Ready, In Progress, Review, and Completed</span>
+            </div>
+          </div>
+          <div id="kanbanContainer" class="kanban-container full-kanban"></div>
+        </section>
 
-        <!-- 2. KANBAN BOARD CONTAINER -->
-        <div id="kanbanContainer" class="kanban-container hidden"></div>
+        <!-- PAGE 4: FULL-WIDTH GANTT TIMELINE -->
+        <section id="page-timeline" class="page-stage hidden">
+          <div class="stage-header">
+            <div class="stage-title-area">
+              <h2 class="stage-title">📅 Project Gantt Timeline</h2>
+              <span class="stage-subtitle">Critical path schedule &amp; milestone delivery durations</span>
+            </div>
+          </div>
+          <div id="ganttContainer" class="gantt-container full-gantt"></div>
+        </section>
 
-        <!-- 3. GANTT TIMELINE CONTAINER -->
-        <div id="ganttContainer" class="gantt-container hidden"></div>
-
-        <!-- Node Inspector Drawer (Slide in on circle click) -->
+        <!-- Node Inspector Drawer (Slide in on node click) -->
         <div id="nodeDetailDrawer" class="node-detail-drawer hidden">
           <button id="btnCloseNodeDrawer" class="close-drawer">&times;</button>
           <div id="nodeDrawerContent"></div>
         </div>
-      </section>
-    </main>
+      </main>
+    </div>
 
-    <!-- FLOATING TOAST NOTIFICATION CONTAINER -->
-    <div id="nexusToastContainer" class="toast-container"></div>
+    <!-- 3. FLOATING AI COPILOT LAUNCHER BUTTON -->
+    <button id="btnFloatingCopilot" class="floating-copilot-pill glow-cyan" title="Open Nexus AI Copilot (Ctrl+K)">
+      <span class="sparkle-anim">✨</span>
+      <span class="copilot-pill-label">Nexus AI Copilot</span>
+      <kbd class="copilot-kbd">Ctrl+K</kbd>
+    </button>
 
-
-    <!-- FOOTER AI COPILOT LAUNCHER -->
-    <footer class="ai-hud-footer glass-panel">
-      <form id="aiPromptForm" class="ai-prompt-form">
-        <div class="copilot-quick-chips">
-          <span class="chips-label">AI PROMPTS:</span>
-          <button type="button" class="copilot-chip" data-prompt="What is the Critical Path and project duration?">🏗️ Critical Path</button>
-          <button type="button" class="copilot-chip" data-prompt="Who is overloaded and needs AI workload rebalancing?">⚡ Rebalance Workload</button>
-          <button type="button" class="copilot-chip" data-prompt="Run Monte Carlo simulation forecast for sprint Alpha">🎲 Monte Carlo Risk</button>
-          <button type="button" class="copilot-chip" data-prompt="Which projects are active?">📁 Active Projects</button>
-          <button type="button" class="copilot-chip" data-prompt="Who is working on Authentication?">🔍 Who is on Auth?</button>
+    <!-- 4. SLIDE-OVER AI COPILOT DRAWER (Right Panel) -->
+    <aside id="aiCopilotDrawer" class="copilot-drawer hidden">
+      <div class="copilot-drawer-header">
+        <div class="copilot-drawer-title">
+          <span class="sparkle-icon" style="font-size:1.3rem;">✨</span>
+          <div>
+            <h3>Nexus AI Copilot</h3>
+            <span class="copilot-status-sub">5 Multi-Agent Personas Connected</span>
+          </div>
         </div>
+        <button id="btnCloseCopilotDrawer" class="close-drawer">&times;</button>
+      </div>
+
+      <!-- Copilot Quick Prompt Chips -->
+      <div class="copilot-quick-chips">
+        <button type="button" class="copilot-chip" data-prompt="What is the Critical Path and project duration?">🏗️ Critical Path</button>
+        <button type="button" class="copilot-chip" data-prompt="Who is overloaded and needs AI workload rebalancing?">⚡ Rebalance Workload</button>
+        <button type="button" class="copilot-chip" data-prompt="Run Monte Carlo simulation forecast for sprint Alpha">🎲 Monte Carlo Risk</button>
+        <button type="button" class="copilot-chip" data-prompt="Which projects are active?">📁 Active Projects</button>
+        <button type="button" class="copilot-chip" data-prompt="Who is working on Authentication?">🔍 Who is on Auth?</button>
+      </div>
+
+      <!-- Copilot Response Feed -->
+      <div id="copilotFeed" class="copilot-feed">
+        <div class="copilot-welcome-card">
+          <div class="copilot-welcome-icon">✨</div>
+          <div class="copilot-welcome-text">
+            <strong>Autonomous Intelligence Online</strong>
+            <p>I have continuous visibility across task graph dependencies, team capacity, Monte Carlo simulations, and organizational policies. Ask me anything or select a prompt chip above.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Copilot Input Form -->
+      <form id="aiPromptForm" class="copilot-drawer-form">
         <div class="prompt-input-container">
-          <span class="sparkle-icon">✨</span>
-          <input type="text" id="aiPromptInput" placeholder="Ask AI Copilot: 'Who is working on Authentication?', 'Which projects are active?', or 'Who is overloaded?'..." />
+          <input type="text" id="aiPromptInput" placeholder="Ask Copilot: 'Who is overloaded?', 'What is on critical path?'..." />
           <button type="submit" class="btn btn-primary btn-sm glow-cyan">
-            <span>Ask Copilot</span>
+            <span>Ask</span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
           </button>
         </div>
       </form>
-    </footer>
+    </aside>
 
     <!-- DRAWER: NOTIFICATIONS -->
     <div id="notificationsDrawer" class="notifications-drawer hidden">
