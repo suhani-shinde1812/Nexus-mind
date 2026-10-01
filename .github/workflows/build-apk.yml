@@ -1,0 +1,76 @@
+name: Build Android APK (Cloud)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Compile Flutter Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Verify Flutter Installation
+        run: flutter --version
+
+      - name: Generate Android Scaffolding & Install Dependencies
+        working-directory: mobile
+        run: |
+          flutter create --platforms=android .
+          flutter pub get
+
+      - name: Build Android Release APK
+        working-directory: mobile
+        run: |
+          flutter build apk --release --no-tree-shake-icons
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NexusMind-Enterprise-Android-APK
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish Direct APK to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: v2.0-android
+          name: "📱 Nexus Mind Enterprise Android APK v2.0"
+          draft: false
+          prerelease: false
+          body: |
+            ### 🚀 Nexus Mind Mobile (Android)
+            Automated Cloud Build generated with zero load on your PC.
+
+            **Installation Instructions:**
+            1. Download `app-release.apk` directly on your Android phone.
+            2. Tap the downloaded file to install (*enable "Install unknown apps" if prompted*).
+            3. Sign in to your workspace or create an account.
+          files: mobile/build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
