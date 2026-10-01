@@ -184,30 +184,36 @@ def seed():
         db.commit()
 
 
-        if db.query(models.User).count() == 0:
+        if db.query(models.Task).count() == 0:
             name_to_id = {}
             for u in USERS:
-                db.add(models.User(hashed_password=hash_password(DEMO_PASSWORD), org_id=org.id, **u))
+                existing_u = db.query(models.User).filter(models.User.id == u["id"]).first()
+                if not existing_u:
+                    db.add(models.User(hashed_password=hash_password(DEMO_PASSWORD), org_id=org.id, **u))
                 name_to_id[u["name"]] = u["id"]
             db.flush()
 
             for p in PROJECTS:
-                db.add(models.Project(org_id=org.id, **p))
+                existing_p = db.query(models.Project).filter(models.Project.id == p["id"]).first()
+                if not existing_p:
+                    db.add(models.Project(org_id=org.id, **p))
             db.flush()
 
             project_name_to_id = {p["name"]: p["id"] for p in PROJECTS}
 
             for t in TASKS:
-                db.add(models.Task(
-                    id=t["id"], title=t["title"],
-                    org_id=org.id,
-                    project_id=project_name_to_id.get(t["project"]),
-                    assignee_id=name_to_id.get(t["assignee"]),
-                    status=t["status"], priority=t["priority"], depends_on=t["depends_on"],
-                    x=t["x"], y=t["y"], due_date=t["due_date"],
-                    ai_risk_score=t["ai_risk_score"], risk_reason=t["risk_reason"],
-                    completed_at=datetime.utcnow() if t["status"] == "done" else None,
-                ))
+                existing_t = db.query(models.Task).filter(models.Task.id == t["id"]).first()
+                if not existing_t:
+                    db.add(models.Task(
+                        id=t["id"], title=t["title"],
+                        org_id=org.id,
+                        project_id=project_name_to_id.get(t["project"]),
+                        assignee_id=name_to_id.get(t["assignee"]),
+                        status=t["status"], priority=t["priority"], depends_on=t["depends_on"],
+                        x=t["x"], y=t["y"], due_date=t["due_date"],
+                        ai_risk_score=t["ai_risk_score"], risk_reason=t["risk_reason"],
+                        completed_at=datetime.utcnow() if t["status"] == "done" else None,
+                    ))
 
             for p in POLICIES:
                 db.add(models.Policy(**p))
