@@ -20,8 +20,8 @@ class ApiClient {
     _dio = Dio(
       BaseOptions(
         baseUrl: AppConfig.baseUrl,
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 15),
+        connectTimeout: const Duration(seconds: 45),
+        receiveTimeout: const Duration(seconds: 45),
         headers: {'Content-Type': 'application/json'},
       ),
     );
@@ -105,6 +105,46 @@ class ApiClient {
     } catch (_) {
       // Fallback
     }
+  }
+
+  Future<void> saveLocalCredential(String email, String password, Map<String, dynamic> userJson) async {
+    try {
+      await _storage.write(key: 'local_cred_${email.toLowerCase().trim()}', value: jsonEncode({
+        'password': password,
+        'user': userJson,
+      }));
+      await _storage.write(key: 'active_user_session', value: jsonEncode(userJson));
+    } catch (_) {}
+  }
+
+  Future<Map<String, dynamic>?> getActiveSession() async {
+    try {
+      final str = await _storage.read(key: 'active_user_session');
+      if (str != null) return jsonDecode(str) as Map<String, dynamic>;
+    } catch (_) {}
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> verifyLocalCredential(String email, String password) async {
+    try {
+      final str = await _storage.read(key: 'local_cred_${email.toLowerCase().trim()}');
+      if (str != null) {
+        final data = jsonDecode(str) as Map<String, dynamic>;
+        if (data['password'] == password) {
+          final user = data['user'] as Map<String, dynamic>;
+          await _storage.write(key: 'active_user_session', value: jsonEncode(user));
+          return user;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<void> clearAllAuthData() async {
+    await clearTokens();
+    try {
+      await _storage.delete(key: 'active_user_session');
+    } catch (_) {}
   }
 
   Future<dynamic> get(String path) async {

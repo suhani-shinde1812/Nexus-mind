@@ -21,7 +21,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
   final TextEditingController _regName = TextEditingController();
   final TextEditingController _regEmail = TextEditingController();
   final TextEditingController _regPassword = TextEditingController();
-  final TextEditingController _regSkills = TextEditingController(text: 'Python, Flutter, API');
+  final TextEditingController _regSkills = TextEditingController();
   String _selectedRole = 'employee';
 
   final TextEditingController _mfaController = TextEditingController();
@@ -147,7 +147,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
 
                 // Tab Content
                 SizedBox(
-                  height: 380,
+                  height: 440,
                   child: TabBarView(
                     controller: _tabController,
                     children: [
@@ -156,25 +156,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
 
                       // TAB 2: CREATE ACCOUNT
                       _buildRegisterForm(context, authState),
-                    ],
-                  ),
-                ),
-
-                // Collapsible 1-Click Demo
-                const SizedBox(height: 12),
-                Theme(
-                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                  child: ExpansionTile(
-                    tilePadding: EdgeInsets.zero,
-                    title: const Text('⚡ Quick Demo Personas (Examiner Access)', style: TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.bold)),
-                    children: [
-                      _demoButton('Sarah Jenkins', 'Team Lead (Sprint Alpha)', AppColors.primary, () => ref.read(authProvider.notifier).loginDemo('team_lead')),
-                      const SizedBox(height: 6),
-                      _demoButton('Alex Vance', 'Frontend Lead (Mobile App)', AppColors.secondary, () => ref.read(authProvider.notifier).loginDemo('employee')),
-                      const SizedBox(height: 6),
-                      _demoButton('Marcus Chen', 'Project Manager', AppColors.purple, () => ref.read(authProvider.notifier).loginDemo('project_manager')),
-                      const SizedBox(height: 6),
-                      _demoButton('Elena Rostova', 'Security Administrator', AppColors.danger, () => ref.read(authProvider.notifier).loginDemo('admin')),
                     ],
                   ),
                 ),
@@ -338,24 +319,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with SingleTickerProv
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                 : const Text('Create Account & Enter', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _demoButton(String name, String role, Color color, VoidCallback onTap) {
-    return OutlinedButton(
-      style: OutlinedButton.styleFrom(
-        side: BorderSide(color: color.withOpacity(0.4)),
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        alignment: Alignment.centerLeft,
-      ),
-      onPressed: onTap,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(name, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
-          Text(role, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
         ],
       ),
     );

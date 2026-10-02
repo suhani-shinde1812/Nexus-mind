@@ -153,9 +153,14 @@ class KanbanScreen extends ConsumerWidget {
   void _showCreateTaskSheet(BuildContext context, WidgetRef ref, WorkspaceState workspace) {
     final titleCtrl = TextEditingController();
     final descCtrl = TextEditingController();
+    final currentUser = ref.read(authProvider).user;
+    final availableUsers = [
+      if (currentUser != null) currentUser,
+      ...workspace.users.where((u) => u.email != currentUser?.email),
+    ];
     String priority = 'Medium';
     String status = 'in_progress';
-    String? assignee = workspace.users.isNotEmpty ? workspace.users.first.name : null;
+    String? assignee = availableUsers.isNotEmpty ? availableUsers.first.name : 'Unassigned';
     String project = workspace.projects.isNotEmpty ? workspace.projects.first.name : 'Sprint Alpha - Cloud Migration';
 
     showModalBottomSheet(
@@ -227,11 +232,11 @@ class KanbanScreen extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    if (workspace.users.isNotEmpty)
+                    if (availableUsers.isNotEmpty)
                       DropdownButtonFormField<String>(
                         value: assignee,
                         decoration: const InputDecoration(labelText: 'Assignee', border: OutlineInputBorder()),
-                        items: workspace.users.map((u) => DropdownMenuItem(value: u.name, child: Text('${u.name} (${u.role})'))).toList(),
+                        items: availableUsers.map((u) => DropdownMenuItem(value: u.name, child: Text('${u.name} (${u.role})'))).toList(),
                         onChanged: (val) { if (val != null) setSheetState(() => assignee = val); },
                       ),
                     const SizedBox(height: 16),

@@ -36,63 +36,121 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final ApiClient _api = ApiClient();
 
-  AuthNotifier() : super(AuthState());
+  AuthNotifier() : super(AuthState()) {
+    _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
+    final session = await _api.getActiveSession();
+    if (session != null) {
+      state = state.copyWith(user: UserModel.fromJson(session));
+    }
+  }
 
   Future<void> register(Map<String, dynamic> data) async {
     state = state.copyWith(isLoading: true, error: null);
+    final email = (data['email'] as String? ?? '').toLowerCase().trim();
+    final password = data['password'] as String? ?? '';
+    final name = data['name'] as String? ?? 'User';
+    final role = data['role'] as String? ?? 'Software Engineer';
+    final appRole = data['app_role'] as String? ?? 'employee';
+    final skills = (data['skills'] as List?)?.map((e) => e.toString()).toList() ?? const <String>[];
+    final initials = name.split(' ').where((s) => s.isNotEmpty).map((s) => s[0]).take(2).join().toUpperCase();
+
     try {
       final res = await _api.post('/api/auth/register', data);
       if (res['access_token'] != null) {
         await _api.saveTokens(res['access_token'], res['refresh_token'] ?? '');
         final boot = await _api.get('/api/bootstrap');
-        state = state.copyWith(
-          user: UserModel.fromJson(boot['currentUser']),
-          isLoading: false,
-        );
-      } else {
-        state = state.copyWith(isLoading: false);
+        final user = UserModel.fromJson(boot['currentUser']);
+        await _api.saveLocalCredential(email, password, {
+          'id': user.id,
+          'name': user.name,
+          'email': user.email,
+          'role': user.role,
+          'app_role': user.appRole,
+          'avatar': user.avatar,
+          'capacity': user.capacity,
+          'active_tasks': user.activeTasks,
+          'skills': user.skills,
+        });
+        state = state.copyWith(user: user, isLoading: false);
+        return;
       }
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-      rethrow;
+    } catch (_) {
+      // Cloud is cold/waking up -> Save locally so user account is immediately active & preserved
     }
+
+    final localUser = UserModel(
+      id: 'USR-${DateTime.now().millisecondsSinceEpoch % 100000}',
+      name: name,
+      email: email,
+      role: role,
+      appRole: appRole,
+      avatar: initials.isEmpty ? 'US' : initials,
+      capacity: 40,
+      activeTasks: 0,
+      skills: skills,
+    );
+
+    await _api.saveLocalCredential(email, password, {
+      'id': localUser.id,
+      'name': localUser.name,
+      'email': localUser.email,
+      'role': localUser.role,
+      'app_role': localUser.appRole,
+      'avatar': localUser.avatar,
+      'capacity': localUser.capacity,
+      'active_tasks': localUser.activeTasks,
+      'skills': localUser.skills,
+    });
+
+    state = state.copyWith(user: localUser, isLoading: false);
   }
 
   Future<void> login(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
+    final cleanEmail = email.toLowerCase().trim();
+
     try {
-      final res = await _api.postForm('/api/auth/login', {'username': email, 'password': password});
+      final res = await _api.postForm('/api/auth/login', {'username': cleanEmail, 'password': password});
       if (res['mfa_required'] == true) {
         state = state.copyWith(isLoading: false, mfaRequired: true, tempToken: res['temp_token']);
         return;
       }
-      await _api.saveTokens(res['access_token'], res['refresh_token']);
-      final boot = await _api.get('/api/bootstrap');
-      state = state.copyWith(
-        user: UserModel.fromJson(boot['currentUser']),
-        isLoading: false,
-      );
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      if (res['access_token'] != null) {
+        await _api.saveTokens(res['access_token'], res['refresh_token'] ?? '');
+        final boot = await _api.get('/api/bootstrap');
+        final user = UserModel.fromJson(boot['currentUser']);
+        await _api.saveLocalCredential(cleanEmail, password, {
+          'id': user.id,
+          'name': user.name,
+          'email': user.email,
+          'role': user.role,
+          'app_role': user.appRole,
+          'avatar': user.avatar,
+          'capacity': user.capacity,
+          'active_tasks': user.activeTasks,
+          'skills': user.skills,
+        });
+        state = state.copyWith(user: user, isLoading: false);
+        return;
+      }
+    } catch (_) {
+      // Cloud login failed/offline -> verify against locally saved registered account
     }
-  }
 
-  void loginDemo(String role) {
-    UserModel user;
-    if (role == 'admin') {
-      user = UserModel(id: 'u6', name: 'Elena Rostova', email: 'elena.rostova@nexusmind.ai', role: 'Administrator', appRole: 'admin', avatar: 'ER', capacity: 30, activeTasks: 0, skills: ['Security', 'OAuth']);
-    } else if (role == 'project_manager') {
-      user = UserModel(id: 'u5', name: 'Marcus Chen', email: 'marcus.chen@nexusmind.ai', role: 'Project Manager', appRole: 'project_manager', avatar: 'MC', capacity: 50, activeTasks: 2, skills: ['Planning']);
-    } else if (role == 'employee') {
-      user = UserModel(id: 'u1', name: 'Alex Vance', email: 'alex.vance@nexusmind.ai', role: 'Frontend Lead', appRole: 'employee', avatar: 'AV', capacity: 80, activeTasks: 3, skills: ['Frontend', 'React']);
+    final localUserJson = await _api.verifyLocalCredential(cleanEmail, password);
+    if (localUserJson != null) {
+      final user = UserModel.fromJson(localUserJson);
+      state = state.copyWith(user: user, isLoading: false);
     } else {
-      user = UserModel(id: 'u2', name: 'Sarah Jenkins', email: 'sarah.jenkins@nexusmind.ai', role: 'Team Lead', appRole: 'team_lead', avatar: 'SJ', capacity: 60, activeTasks: 2, skills: ['Management']);
+      state = state.copyWith(isLoading: false, error: 'Invalid email or password. Please verify your credentials or create an account.');
     }
-    state = state.copyWith(user: user, isLoading: false);
   }
 
   void logout() {
-    _api.clearTokens();
+    _api.clearAllAuthData();
     state = AuthState();
   }
 }

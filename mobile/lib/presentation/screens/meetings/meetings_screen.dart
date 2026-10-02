@@ -196,6 +196,7 @@ class MeetingsScreen extends ConsumerWidget {
                         final dateStr = '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
                         final timeStr = '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}';
 
+                        final currentUser = ref.read(authProvider).user;
                         ref.read(workspaceProvider.notifier).createMeeting({
                           'title': title,
                           'project': project,
@@ -203,7 +204,8 @@ class MeetingsScreen extends ConsumerWidget {
                           'time': timeStr,
                           'duration': duration,
                           'agenda': agendaCtrl.text.trim(),
-                          'attendees': ['Team Lead', 'Engineering Team'],
+                          'organizer': currentUser?.name ?? 'Organizer',
+                          'attendees': [currentUser?.name ?? 'Workspace Member'],
                         });
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Meeting "$title" scheduled!')));
