@@ -35,7 +35,7 @@ class UserModel {
       avatar: json['avatar'] ?? 'NM',
       capacity: json['capacity'] ?? 0,
       activeTasks: json['active_tasks'] ?? json['activeTasks'] ?? 0,
-      skills: (json['skills'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      skills: (json['skills'] as List?)?.map((e) => e.toString()).toList() ?? const <String>[],
       mfaEnabled: json['mfa_enabled'] ?? json['mfaEnabled'] ?? false,
     );
   }
@@ -107,7 +107,7 @@ class TaskModel {
       assignee: json['assignee'],
       status: json['status'] ?? 'in_progress',
       priority: json['priority'] ?? 'Medium',
-      dependsOn: (json['dependsOn'] as List? ?? json['depends_on'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      dependsOn: (json['dependsOn'] as List? ?? json['depends_on'] as List?)?.map((e) => e.toString()).toList() ?? const <String>[],
       x: (json['x'] as num?)?.toDouble() ?? 400.0,
       y: (json['y'] as num?)?.toDouble() ?? 250.0,
       dueDate: json['dueDate'] ?? json['due_date'] ?? '',
@@ -294,7 +294,7 @@ class MeetingModel {
       date: json['date'] ?? '',
       time: json['time'] ?? '',
       duration: json['duration'] ?? '30',
-      attendees: (json['attendees'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      attendees: (json['attendees'] as List?)?.map((e) => e.toString()).toList() ?? const <String>[],
       agenda: json['agenda'] ?? '',
       organizer: json['organizer'] ?? 'Team Lead',
       status: json['status'] ?? 'scheduled',

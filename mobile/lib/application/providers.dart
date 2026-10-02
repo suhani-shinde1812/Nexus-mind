@@ -153,10 +153,10 @@ class WorkspaceNotifier extends StateNotifier<WorkspaceState> {
     state = state.copyWith(isLoading: true);
     try {
       final res = await _api.get('/api/bootstrap');
-      final tasks = (res['tasks'] as List?)?.map((e) => TaskModel.fromJson(e)).toList() ?? [];
-      final projects = (res['projects'] as List?)?.map((e) => ProjectModel.fromJson(e)).toList() ?? [];
-      final users = (res['users'] as List?)?.map((e) => UserModel.fromJson(e)).toList() ?? [];
-      final meetings = (res['meetings'] as List?)?.map((e) => MeetingModel.fromJson(e)).toList() ?? [];
+      final tasks = (res['tasks'] as List?)?.map((e) => TaskModel.fromJson(e)).toList() ?? <TaskModel>[];
+      final projects = (res['projects'] as List?)?.map((e) => ProjectModel.fromJson(e)).toList() ?? <ProjectModel>[];
+      final users = (res['users'] as List?)?.map((e) => UserModel.fromJson(e)).toList() ?? <UserModel>[];
+      final meetings = (res['meetings'] as List?)?.map((e) => MeetingModel.fromJson(e)).toList() ?? <MeetingModel>[];
       final radar = res['securityThreat'] != null ? ThreatRadarModel.fromJson(res['securityThreat']) : null;
       final eng = res['engineeringMetrics'] != null ? EngineeringMetricsModel.fromJson(res['engineeringMetrics']) : null;
 
@@ -178,7 +178,7 @@ class WorkspaceNotifier extends StateNotifier<WorkspaceState> {
   void _loadFallbackState() {
     state = state.copyWith(
       tasks: [
-        TaskModel(id: 'TASK-101', title: 'Cloud Infrastructure Provisioning (Terraform)', description: 'AWS VPC & ECS cluster setup', status: 'done', priority: 'High', dependsOn: [], x: 120, y: 180, dueDate: '2026-07-20', aiRiskScore: 0.1, assignee: 'Devon Reed'),
+        TaskModel(id: 'TASK-101', title: 'Cloud Infrastructure Provisioning (Terraform)', description: 'AWS VPC & ECS cluster setup', status: 'done', priority: 'High', dependsOn: const <String>[], x: 120, y: 180, dueDate: '2026-07-20', aiRiskScore: 0.1, assignee: 'Devon Reed'),
         TaskModel(id: 'TASK-102', title: 'PostgreSQL Database Schema & Migration Script', description: 'Partitioned relational schema', status: 'in_progress', priority: 'Critical', dependsOn: ['TASK-101'], x: 300, y: 140, dueDate: '2026-07-28', aiRiskScore: 0.85, assignee: 'Devon Reed', riskReason: 'Capacity overload 110%'),
         TaskModel(id: 'TASK-103', title: 'OAuth2 Authentication API Gateway', description: 'JWT refresh & MFA endpoints', status: 'in_progress', priority: 'High', dependsOn: ['TASK-102'], x: 480, y: 140, dueDate: '2026-07-30', aiRiskScore: 0.75, assignee: 'Alex Vance'),
         TaskModel(id: 'TASK-104', title: 'React Dashboard UI & Role Authorization Views', description: 'Enterprise UI matrix', status: 'blocked', priority: 'High', dependsOn: ['TASK-103'], x: 660, y: 200, dueDate: '2026-08-05', aiRiskScore: 0.92, assignee: 'Alex Vance', riskReason: 'Blocked by prerequisite TASK-103'),
@@ -224,7 +224,7 @@ class WorkspaceNotifier extends StateNotifier<WorkspaceState> {
         status: taskData['status'] ?? 'in_progress',
         priority: taskData['priority'] ?? 'Medium',
         assignee: taskData['assignee'],
-        dependsOn: const [],
+        dependsOn: const <String>[],
         x: 400.0,
         y: 250.0,
         dueDate: taskData['due_date'] ?? '2026-08-30',
@@ -248,7 +248,7 @@ class WorkspaceNotifier extends StateNotifier<WorkspaceState> {
         date: meetingData['date'] ?? '2026-08-25',
         time: meetingData['time'] ?? '10:00',
         duration: meetingData['duration'] ?? '30',
-        attendees: (meetingData['attendees'] as List?)?.map((e) => e.toString()).toList() ?? [],
+        attendees: (meetingData['attendees'] as List?)?.map((e) => e.toString()).toList() ?? const <String>[],
         agenda: meetingData['agenda'] ?? '',
         organizer: meetingData['organizer'] ?? 'Organizer',
         status: 'scheduled',
