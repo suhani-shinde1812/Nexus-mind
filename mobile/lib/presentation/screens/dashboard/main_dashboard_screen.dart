@@ -50,25 +50,20 @@ class MainDashboardScreen extends ConsumerWidget {
                         Text('Role Portal: ${user?.role ?? "Team Member"}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       ],
                     ),
-                    PopupMenuButton<String>(
-                      tooltip: 'Switch Examiner Role',
-                      icon: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(6), border: Border.all(color: AppColors.border)),
-                        child: const Row(
-                          children: [
-                            Text('Switch Persona', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                            Icon(Icons.arrow_drop_down, size: 16),
-                          ],
-                        ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.success.withOpacity(0.4)),
                       ),
-                      onSelected: (role) => ref.read(authProvider.notifier).loginDemo(role),
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(value: 'employee', child: Text('Alex Vance (Frontend Lead / Employee)')),
-                        const PopupMenuItem(value: 'team_lead', child: Text('Sarah Jenkins (Team Lead)')),
-                        const PopupMenuItem(value: 'project_manager', child: Text('Marcus Chen (Project Manager)')),
-                        const PopupMenuItem(value: 'admin', child: Text('Elena Rostova (Administrator)')),
-                      ],
+                      child: const Row(
+                        children: [
+                          Icon(Icons.circle, size: 8, color: AppColors.success),
+                          SizedBox(width: 6),
+                          Text('Connected', style: TextStyle(fontSize: 11, color: AppColors.success, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
                     ),
                   ],
                 ),
