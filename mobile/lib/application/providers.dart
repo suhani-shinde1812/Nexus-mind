@@ -36,26 +36,26 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final ApiClient _api = ApiClient();
 
-  AuthNotifier() : super(AuthState()) {
-    if (AppConfig.demoMode) {
-      _autoLoginDemo();
-    }
-  }
+  AuthNotifier() : super(AuthState());
 
-  void _autoLoginDemo() {
-    // Default demo persona for quick examiner evaluation when DEMO_MODE=true
-    final demoUser = UserModel(
-      id: 'u2',
-      name: 'Sarah Jenkins',
-      email: 'sarah.jenkins@nexusmind.ai',
-      role: 'Team Lead',
-      appRole: 'team_lead',
-      avatar: 'SJ',
-      capacity: 60,
-      activeTasks: 2,
-      skills: ['Management', 'Monitoring', 'SLA', 'Planning'],
-    );
-    state = state.copyWith(user: demoUser);
+  Future<void> register(Map<String, dynamic> data) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final res = await _api.post('/api/auth/register', data);
+      if (res['access_token'] != null) {
+        await _api.saveTokens(res['access_token'], res['refresh_token'] ?? '');
+        final boot = await _api.get('/api/bootstrap');
+        state = state.copyWith(
+          user: UserModel.fromJson(boot['currentUser']),
+          isLoading: false,
+        );
+      } else {
+        state = state.copyWith(isLoading: false);
+      }
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
   }
 
   Future<void> login(String email, String password) async {
@@ -207,6 +207,52 @@ class WorkspaceNotifier extends StateNotifier<WorkspaceState> {
     }).toList();
     state = state.copyWith(tasks: updated);
     _api.patch('/api/tasks/$taskId/status', {'status': newStatus}).catchError((_) => {});
+  }
+
+  Future<void> createTask(Map<String, dynamic> taskData) async {
+    try {
+      final res = await _api.post('/api/tasks', taskData);
+      final newTask = TaskModel.fromJson(res);
+      state = state.copyWith(tasks: [newTask, ...state.tasks]);
+    } catch (_) {
+      final localId = 'TASK-${100 + state.tasks.length + 1}';
+      final localTask = TaskModel(
+        id: localId,
+        title: taskData['title'] ?? 'New Task',
+        description: taskData['description'] ?? '',
+        project: taskData['project'] ?? 'General',
+        status: taskData['status'] ?? 'in_progress',
+        priority: taskData['priority'] ?? 'Medium',
+        assignee: taskData['assignee'],
+        dueDate: taskData['due_date'] ?? '2026-08-30',
+        aiRiskScore: 0.1,
+      );
+      state = state.copyWith(tasks: [localTask, ...state.tasks]);
+    }
+  }
+
+  Future<void> createMeeting(Map<String, dynamic> meetingData) async {
+    try {
+      final res = await _api.post('/api/meetings', meetingData);
+      final newMeeting = MeetingModel.fromJson(res);
+      state = state.copyWith(meetings: [newMeeting, ...state.meetings]);
+    } catch (_) {
+      final localId = 'MTG-${1000 + state.meetings.length + 1}';
+      final localM = MeetingModel(
+        id: localId,
+        title: meetingData['title'] ?? 'Team Sync',
+        project: meetingData['project'] ?? 'General',
+        date: meetingData['date'] ?? '2026-08-25',
+        time: meetingData['time'] ?? '10:00',
+        duration: meetingData['duration'] ?? '30',
+        attendees: (meetingData['attendees'] as List?)?.map((e) => e.toString()).toList() ?? [],
+        agenda: meetingData['agenda'] ?? '',
+        organizer: meetingData['organizer'] ?? 'Organizer',
+        status: 'scheduled',
+        link: 'https://meet.jit.si/NexusMind-$localId',
+      );
+      state = state.copyWith(meetings: [localM, ...state.meetings]);
+    }
   }
 }
 

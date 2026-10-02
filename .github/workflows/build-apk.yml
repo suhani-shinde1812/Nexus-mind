@@ -37,7 +37,7 @@ jobs:
       - name: Generate Android Scaffolding & Install Dependencies
         working-directory: mobile
         run: |
-          flutter create --platforms=android --org com.nexusmind .
+          flutter create --platforms=android --org ai.nexusmind.app .
           flutter pub get
 
       - name: Build Android Release APK
@@ -58,8 +58,8 @@ jobs:
         continue-on-error: true
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v2.0-android
-          name: "📱 Nexus Mind Enterprise Android APK v2.0"
+          tag_name: v2.1-android
+          name: "📱 Nexus Mind Enterprise Android APK v2.1"
           draft: false
           prerelease: false
           body: |
