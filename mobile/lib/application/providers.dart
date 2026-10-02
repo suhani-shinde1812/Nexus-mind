@@ -224,6 +224,9 @@ class WorkspaceNotifier extends StateNotifier<WorkspaceState> {
         status: taskData['status'] ?? 'in_progress',
         priority: taskData['priority'] ?? 'Medium',
         assignee: taskData['assignee'],
+        dependsOn: const [],
+        x: 400.0,
+        y: 250.0,
         dueDate: taskData['due_date'] ?? '2026-08-30',
         aiRiskScore: 0.1,
       );
