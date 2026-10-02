@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/providers.dart';
 import '../../core/theme/app_theme.dart';
+import '../../domain/entities/models.dart';
+
 
 class ResponsiveScaffold extends ConsumerStatefulWidget {
   final int selectedIndex;
