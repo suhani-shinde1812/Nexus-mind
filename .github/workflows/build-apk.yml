@@ -37,8 +37,13 @@ jobs:
       - name: Generate Android Scaffolding & Install Dependencies
         working-directory: mobile
         run: |
-          flutter create --platforms=android --org ai.nexusmind.app .
+          flutter create --platforms=android --org com.nexusmind.enterprise .
           flutter pub get
+
+      - name: Verify Dart & Flutter Code Integrity
+        working-directory: mobile
+        run: |
+          flutter analyze --no-fatal-infos
 
       - name: Build Android Release APK
         working-directory: mobile
