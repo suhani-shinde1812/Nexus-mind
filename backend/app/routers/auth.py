@@ -1,3 +1,4 @@
+from sqlalchemy import func
 """
 Authentication & IAM Router:
 - Registration, JWT Login, Refresh token rotation
@@ -19,7 +20,8 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/register", response_model=schemas.TokenOut, status_code=status.HTTP_201_CREATED)
 def register(payload: schemas.RegisterIn, request: Request, db: Session = Depends(get_db)):
-    existing = db.query(models.User).filter(models.User.email == payload.email).first()
+    email_clean = payload.email.strip().lower()
+    existing = db.query(models.User).filter(func.lower(models.User.email) == email_clean).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email is already registered")
 
@@ -82,7 +84,8 @@ def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
-    user = db.query(models.User).filter(models.User.email == form_data.username).first()
+    username_clean = form_data.username.strip().lower()
+    user = db.query(models.User).filter(func.lower(models.User.email) == username_clean).first()
     if not user or not security.verify_password(form_data.password, user.hashed_password):
         # Log failed login attempt for security monitoring
         ip = request.client.host if request.client else "127.0.0.1"

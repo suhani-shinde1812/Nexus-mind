@@ -107,7 +107,7 @@ export class SimulationSandbox {
     return `
       <div class="sim-empty-state">
         <div style="font-size:2.5rem; margin-bottom:12px;">🎲</div>
-        <div style="font-size:1rem; font-weight:700; color:#fff; margin-bottom:8px;">Run a Simulation</div>
+        <div style="font-size:1rem; font-weight:700; color:var(--text-primary); margin-bottom:8px;">Run a Simulation</div>
         <div style="font-size:0.8rem; color:var(--text-muted); max-width:260px; text-align:center; line-height:1.5;">
           Configure your scenario on the left and click <strong>Run Simulation</strong> to model probabilistic delivery outcomes.
         </div>
@@ -190,16 +190,16 @@ export class SimulationSandbox {
     return `
       <svg viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:120px;">
         ${bars.map((b, i) => {
-          const barW = (b.pct / 100) * 280;
-          const y = i * 36 + 10;
-          return `
+      const barW = (b.pct / 100) * 280;
+      const y = i * 36 + 10;
+      return `
             <text x="10" y="${y + 13}" fill="#94A3B8" font-size="10" font-family="Inter,sans-serif">${b.label}</text>
             <rect x="130" y="${y}" width="${barW}" height="20" rx="4"
               fill="${b.color}" opacity="0.85" class="sim-bar-animated"/>
             <rect x="130" y="${y}" width="280" height="20" rx="4" fill="none" stroke="rgba(255,255,255,0.07)"/>
             <text x="${130 + barW + 6}" y="${y + 14}" fill="${b.color}" font-size="11" font-weight="700" font-family="Inter,sans-serif">${b.pct}%</text>
           `;
-        }).join('')}
+    }).join('')}
       </svg>
     `;
   }

@@ -79,85 +79,44 @@ export class RolePortals {
   }
 
   // --------------------------------------------------------------------------
-  // 1. EMPLOYEE PORTAL
   // --------------------------------------------------------------------------
-  renderEmployeePortal(state) {
-    const userTasks = state.tasks.filter(t => t.assignee === state.currentUser.name);
-    const activeTasks = userTasks.filter(t => t.status !== 'done');
-    const doneTasks = userTasks.filter(t => t.status === 'done');
-
-    this.container.innerHTML = `
-      <div class="dashboard-grid">
-        <div class="stat-card">
-          <span class="stat-card-title">MY ACTIVE TASKS</span>
-          <span class="stat-card-value">${activeTasks.length}</span>
-          <span class="stat-card-trend up">⚡ High Priority Focus</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-card-title">COMPLETED THIS SPRINT</span>
-          <span class="stat-card-value">${doneTasks.length}</span>
-          <span class="stat-card-trend up">↑ Velocity On Target</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-card-title">CURRENT WORKLOAD</span>
-          <span class="stat-card-value" style="color: ${state.currentUser.capacity > 90 ? '#EF4444' : 'var(--cyan-primary)'};">${state.currentUser.capacity}%</span>
-          <span class="stat-card-trend">💡 ${state.currentUser.capacity > 90 ? 'High capacity load' : 'Optimal bandwidth'}</span>
-        </div>
-      </div>
-
-      <div style="margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-          <h3 style="font-size: 0.95rem; font-weight: 700; color: #fff;">📌 My Tasks & Active Work Queue</h3>
-          <span class="text-muted" style="font-size: 0.75rem;">Showing ${userTasks.length} assigned task(s)</span>
-        </div>
-
-        <div class="task-list-container">
-          ${userTasks.length > 0 ? userTasks.map(task => `
-            <div class="task-item-card" data-task-id="${task.id}">
-              <div class="task-item-main">
-                <span class="task-status-pill ${task.status}">${task.status.replace('_', ' ')}</span>
-                <div>
-                  <div class="task-title">[${task.id}] ${task.title}</div>
-                  <div class="task-meta">
-                    <span>Project: ${task.project || 'General'}</span>
-                    <span>Due: ${task.dueDate || 'No Due Date'}</span>
-                    ${task.dependsOn && task.dependsOn.length > 0 ? `<span style="color:var(--cyan-primary);">🔗 ${task.dependsOn.join(', ')}</span>` : ''}
-                  </div>
+  // SHARED TASK CARD RENDERER
+  // --------------------------------------------------------------------------
+  _renderTaskCardList(tasks, emptyMsg = "No tasks currently in this queue.") {
+    if (!tasks || tasks.length === 0) {
+      return `<p class="text-muted" style="padding: 14px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.825rem;">${emptyMsg}</p>`;
+    }
+    return `
+      <div class="task-list-container">
+        ${tasks.map(task => `
+          <div class="task-item-card" data-task-id="${task.id}">
+            <div class="task-item-main">
+              <span class="task-status-pill ${task.status}">${(task.status || 'in_progress').replace('_', ' ')}</span>
+              <div>
+                <div class="task-title">[${task.id}] ${task.title}</div>
+                <div class="task-meta">
+                  <span style="font-weight: 700; color: #38BDF8;">👤 ${task.assignee || 'Unassigned'}</span>
+                  <span>Project: ${task.project || 'General'}</span>
+                  <span class="task-priority-tag ${(task.priority || 'Medium').toLowerCase()}">${task.priority || 'Medium'}</span>
+                  <span>Due: ${task.dueDate || 'Unset'}</span>
+                  ${task.dependsOn && task.dependsOn.length > 0 ? `<span style="color:var(--cyan-primary);">🔗 ${task.dependsOn.join(', ')}</span>` : ''}
+                  ${task.riskReason ? `<span style="color:#EF4444;">⚠️ ${task.riskReason}</span>` : ''}
                 </div>
               </div>
-              <div style="display: flex; gap: 8px;">
-                <button class="btn btn-ghost btn-xs btn-inspect-task" data-id="${task.id}">🔍 View</button>
-                <button class="btn btn-primary btn-xs btn-complete-task" data-id="${task.id}">
-                  ${task.status === 'done' ? 'Completed ✓' : 'Mark Done'}
-                </button>
-              </div>
             </div>
-          `).join('') : '<p class="text-muted">No tasks assigned to your queue.</p>'}
-        </div>
-      </div>
-
-      <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
-        <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--cyan-primary); margin-bottom: 8px;">📤 Submit Work & Daily Engineer Standup Log</h4>
-        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-          <input type="text" id="dailyLogInput" placeholder="Log today's code changes or PR link (e.g. Completed OAuth2 JWT refresh logic)..." style="flex:1; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; color: #fff; font-size: 0.825rem;" />
-          <button id="btnSubmitDailyLog" class="btn btn-primary btn-sm">Submit Log</button>
-        </div>
-        <div id="logSuccessMsg" style="font-size: 0.75rem; color: var(--status-done); display: none;">✓ Standup entry committed to Live Task Graph Activity Trail!</div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-ghost btn-xs btn-inspect-task" data-id="${task.id}">🔍 View</button>
+              <button class="btn btn-primary btn-xs btn-complete-task" data-id="${task.id}">
+                ${task.status === 'done' ? 'Completed ✓' : 'Mark Done'}
+              </button>
+            </div>
+          </div>
+        `).join('')}
       </div>
     `;
-
-    this.attachEmployeeEvents();
   }
 
-  attachEmployeeEvents() {
-    this.container.querySelectorAll('.btn-complete-task').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = e.target.getAttribute('data-id');
-        store.updateTaskStatus(id, 'done');
-        this.render();
-      });
-    });
-
+  _bindTaskItemEvents() {
     this.container.querySelectorAll('.btn-inspect-task').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const id = e.target.getAttribute('data-id');
@@ -166,6 +125,79 @@ export class RolePortals {
       });
     });
 
+    this.container.querySelectorAll('.btn-complete-task').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.target.getAttribute('data-id');
+        store.updateTaskStatus(id, 'done');
+        this.render();
+      });
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // 1. EMPLOYEE PORTAL
+  // --------------------------------------------------------------------------
+  renderEmployeePortal(state) {
+    const user = state.currentUser;
+    const userName = user ? user.name : '';
+    const userTasks = state.tasks.filter(t => t.assignee === userName);
+    const myActive = userTasks.filter(t => t.status !== 'done');
+    const myDone = userTasks.filter(t => t.status === 'done');
+    const allOngoingTasks = state.tasks;
+    const teamActive = allOngoingTasks.filter(t => t.status !== 'done');
+
+    this.container.innerHTML = `
+      <div class="dashboard-grid">
+        <div class="stat-card">
+          <span class="stat-card-title">MY ACTIVE TASKS</span>
+          <span class="stat-card-value">${myActive.length}</span>
+          <span class="stat-card-trend up">⚡ Assigned to You</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card-title">TEAM ONGOING TASKS</span>
+          <span class="stat-card-value">${teamActive.length}</span>
+          <span class="stat-card-trend up">↑ In Progress across Team</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card-title">WORKSPACE COMPLETION</span>
+          <span class="stat-card-value">${allOngoingTasks.length > 0 ? Math.round((allOngoingTasks.filter(t => t.status === 'done').length / allOngoingTasks.length) * 100) : 0}%</span>
+          <span class="stat-card-trend">💡 ${allOngoingTasks.length} Total Task(s)</span>
+        </div>
+      </div>
+
+      ${userTasks.length > 0 ? `
+        <div style="margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">📌 My Assigned Tasks (${userName})</h3>
+            <span class="text-muted" style="font-size: 0.75rem;">${userTasks.length} assigned task(s)</span>
+          </div>
+          ${this._renderTaskCardList(userTasks, 'No personal tasks assigned.')}
+        </div>
+      ` : ''}
+
+      <div style="margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">🌐 All Ongoing Team Tasks</h3>
+          <span class="text-muted" style="font-size: 0.75rem;">Showing ${allOngoingTasks.length} total sprint task(s)</span>
+        </div>
+        ${this._renderTaskCardList(allOngoingTasks, 'No sprint tasks found in workspace. Click + New Task above to create one!')}
+      </div>
+
+      <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+        <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--cyan-primary); margin-bottom: 8px;">📤 Submit Work & Daily Engineer Standup Log</h4>
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+          <input type="text" id="dailyLogInput" placeholder="Log today's code changes or PR link (e.g. Completed OAuth2 JWT refresh logic)..." style="flex:1; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; color: var(--text-primary); font-size: 0.825rem;" />
+          <button id="btnSubmitDailyLog" class="btn btn-primary btn-sm">Submit Log</button>
+        </div>
+        <div id="logSuccessMsg" style="font-size: 0.75rem; color: var(--status-done); display: none;">✓ Standup entry committed to Live Task Graph Activity Trail!</div>
+      </div>
+    `;
+
+    this._bindTaskItemEvents();
+    this.attachEmployeeEvents();
+  }
+
+  attachEmployeeEvents() {
     const submitBtn = this.container.querySelector('#btnSubmitDailyLog');
     if (submitBtn) {
       submitBtn.addEventListener('click', () => {
@@ -189,15 +221,17 @@ export class RolePortals {
   // --------------------------------------------------------------------------
   renderTeamLeadPortal(state) {
     const tasks = state.tasks;
+    const activeTasks = tasks.filter(t => t.status !== 'done');
     const blockedCount = tasks.filter(t => t.status === 'blocked').length;
     const highRiskCount = tasks.filter(t => t.aiRiskScore >= 0.7 && t.status !== 'done').length;
+    const hazardTasks = tasks.filter(t => (t.status === 'blocked' || t.priority === 'Critical' || t.aiRiskScore >= 0.7) && t.status !== 'done');
 
     this.container.innerHTML = `
       <div class="dashboard-grid">
         <div class="stat-card">
           <span class="stat-card-title">ACTIVE SPRINT TASKS</span>
           <span class="stat-card-value">${tasks.length}</span>
-          <span class="stat-card-trend up">${Math.round((tasks.filter(t => t.status === 'done').length / tasks.length) * 100)}% Overall Completion</span>
+          <span class="stat-card-trend up">${tasks.length > 0 ? Math.round((tasks.filter(t => t.status === 'done').length / tasks.length) * 100) : 0}% Overall Completion</span>
         </div>
         <div class="stat-card">
           <span class="stat-card-title">BLOCKED BOTTLENECKS</span>
@@ -213,50 +247,61 @@ export class RolePortals {
 
       <div style="margin-bottom: 20px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-          <h3 style="font-size: 0.95rem; font-weight: 700; color: #fff;">👥 Team Member Capacity & Workload Balance</h3>
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">👥 Team Member Capacity & Workload Balance</h3>
           <button class="btn btn-ghost btn-xs" id="btnLeadAutoRebalance">⚡ Run AI Rebalance</button>
         </div>
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px;">
-          ${state.users.map(u => `
+          ${(state.users || []).map(u => `
             <div style="background: var(--bg-card); border: 1px solid ${u.capacity > 95 ? '#EF4444' : 'var(--border-color)'}; border-radius: 8px; padding: 10px;">
               <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 600;">
                 <span>${u.name} (${u.role})</span>
-                <span style="color: ${u.capacity > 95 ? '#EF4444' : 'var(--cyan-primary)'};">${u.capacity}% Load</span>
+                <span style="color: ${u.capacity > 95 ? '#EF4444' : 'var(--cyan-primary)'};">${u.capacity || 0}% Load</span>
               </div>
               <div style="background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px; margin-top: 6px; overflow: hidden;">
-                <div style="width: ${Math.min(100, u.capacity)}%; height: 100%; background: ${u.capacity > 95 ? '#EF4444' : 'var(--cyan-primary)'};"></div>
+                <div style="width: ${Math.min(100, u.capacity || 0)}%; height: 100%; background: ${u.capacity > 95 ? '#EF4444' : 'var(--cyan-primary)'};"></div>
               </div>
-              <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">Active: ${u.activeTasks} task(s) • Skills: ${u.skills.slice(0, 3).join(', ')}</div>
+              <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">Active: ${u.activeTasks || 0} task(s) • Skills: ${(u.skills || []).slice(0, 3).join(', ')}</div>
             </div>
           `).join('')}
         </div>
       </div>
 
-      <div>
-        <h3 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 10px;">📋 Approvals & Hazard Review Queue</h3>
-        <div class="task-list-container">
-          ${tasks.filter(t => (t.status === 'blocked' || t.priority === 'Critical' || t.aiRiskScore >= 0.7) && t.status !== 'done').map(task => `
-            <div class="task-item-card" data-task-id="${task.id}">
-              <div class="task-item-main">
-                <span class="task-status-pill ${task.status}">${task.status.replace('_', ' ')}</span>
-                <div>
-                  <div class="task-title">[${task.id}] ${task.title}</div>
-                  <div class="task-meta">
-                    <span>Owner: ${task.assignee}</span>
-                    <span style="color:#EF4444;">${task.riskReason ? 'Risk: ' + task.riskReason : ''}</span>
+      <div style="margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">🌐 All Ongoing Team Tasks</h3>
+          <span class="text-muted" style="font-size: 0.75rem;">${tasks.length} total sprint task(s)</span>
+        </div>
+        ${this._renderTaskCardList(tasks, 'No sprint tasks found in workspace. Click + New Task above to create one!')}
+      </div>
+
+      ${hazardTasks.length > 0 ? `
+        <div style="margin-bottom: 20px;">
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin-bottom: 10px;">⚠️ Hazard & Critical Review Queue</h3>
+          <div class="task-list-container">
+            ${hazardTasks.map(task => `
+              <div class="task-item-card" data-task-id="${task.id}" style="border-left: 3px solid #EF4444;">
+                <div class="task-item-main">
+                  <span class="task-status-pill ${task.status}">${task.status.replace('_', ' ')}</span>
+                  <div>
+                    <div class="task-title">[${task.id}] ${task.title}</div>
+                    <div class="task-meta">
+                      <span style="font-weight: 700; color: #38BDF8;">👤 ${task.assignee || 'Unassigned'}</span>
+                      <span style="color:#EF4444;">${task.riskReason ? 'Risk: ' + task.riskReason : 'Critical Priority'}</span>
+                    </div>
                   </div>
                 </div>
+                <div style="display: flex; gap: 6px;">
+                  <button class="btn btn-ghost btn-xs btn-inspect-task" data-id="${task.id}">🔍 Inspect</button>
+                  <button class="btn btn-primary btn-xs btn-unblock-task" data-id="${task.id}">Unblock Node</button>
+                </div>
               </div>
-              <div style="display: flex; gap: 6px;">
-                <button class="btn btn-ghost btn-xs btn-inspect-task" data-id="${task.id}">🔍 Inspect</button>
-                <button class="btn btn-primary btn-xs btn-unblock-task" data-id="${task.id}">Unblock Node</button>
-              </div>
-            </div>
-          `).join('')}
+            `).join('')}
+          </div>
         </div>
-      </div>
+      ` : ''}
     `;
 
+    this._bindTaskItemEvents();
     this.attachTeamLeadEvents();
   }
 
@@ -269,14 +314,6 @@ export class RolePortals {
       });
     });
 
-    this.container.querySelectorAll('.btn-inspect-task').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = e.target.getAttribute('data-id');
-        store.setView('graph');
-        window.dispatchEvent(new CustomEvent('nexus:inspect-node', { detail: { taskId: id } }));
-      });
-    });
-
     const rebalanceBtn = this.container.querySelector('#btnLeadAutoRebalance');
     if (rebalanceBtn) {
       rebalanceBtn.addEventListener('click', () => {
@@ -286,7 +323,6 @@ export class RolePortals {
     }
   }
 
-  // --------------------------------------------------------------------------
   // 3. PROJECT MANAGER PORTAL
   // --------------------------------------------------------------------------
   renderProjectManagerPortal(state) {
@@ -314,7 +350,7 @@ export class RolePortals {
       </div>
 
       <div style="margin-bottom: 20px;">
-        <h3 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 10px;">🚀 Sprint Planning & Delivery Trajectory</h3>
+        <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin-bottom: 10px;">🚀 Sprint Planning & Delivery Trajectory</h3>
         ${activeProjectsCount > 0 ? activeProjects.map(p => `
           <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 10px;">
             <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700;">
@@ -331,7 +367,7 @@ export class RolePortals {
 
       <div style="background: rgba(127,0,255,0.08); border: 1px solid var(--purple-primary); border-radius: 12px; padding: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <h4 style="font-size: 0.85rem; font-weight: 700; color: #fff;">🧠 AI Monte Carlo Delivery Forecast</h4>
+          <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">🧠 AI Monte Carlo Delivery Forecast</h4>
           <button class="btn btn-ghost btn-xs" id="btnExportBriefing">Export Executive Report</button>
         </div>
         <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4;">
@@ -381,7 +417,7 @@ export class RolePortals {
       </div>
 
       <div style="margin-bottom: 20px;">
-        <h3 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 10px;">🛡️ Organization Roles & Security Matrix</h3>
+        <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin-bottom: 10px;">🛡️ Organization Roles & Security Matrix</h3>
         <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
           <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; color: var(--text-primary);">
             <thead>
@@ -414,7 +450,7 @@ export class RolePortals {
   renderTasksTab(state) {
     this.container.innerHTML = `
       <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="font-size: 0.95rem; font-weight: 700; color: #fff;">📋 All Sprint Alpha Engineering Tasks</h3>
+        <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">📋 All Sprint Alpha Engineering Tasks</h3>
         <span class="text-muted" style="font-size: 0.75rem;">${state.tasks.length} total tasks</span>
       </div>
 
@@ -527,7 +563,7 @@ export class RolePortals {
             ${logs.length > 0 ? logs.slice(-15).reverse().map(log => `
               <div class="war-stream-entry">
                 <div style="display:flex; align-items:center; gap:6px;">
-                  <span style="font-size:0.75rem; font-weight:700; color:#fff;">${log.agent}</span>
+                  <span style="font-size:0.75rem; font-weight:700; color: var(--text-primary);">${log.agent}</span>
                   <span style="font-size:0.65rem; color:var(--cyan-primary);">[${log.action}]</span>
                   ${log.tool ? `<code style="font-size:0.62rem; background:rgba(0,242,254,0.1); color:var(--cyan-primary); padding:1px 3px; border-radius:2px;">tool: ${log.tool}</code>` : ''}
                 </div>
@@ -599,18 +635,18 @@ export class RolePortals {
     this.container.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="font-size: 1rem; color: #fff; font-weight: 700;">📊 Live Sprint Analytics & Risk Intelligence</h3>
+          <h3 style="font-size: 1rem; color: var(--text-primary); font-weight: 700;">📊 Live Sprint Analytics & Risk Intelligence</h3>
           <span class="badge-pill in-progress">Sprint Delivery: ${state.sprintForecast.onTimeProbability}%</span>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
           <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px;">
-            <h4 style="font-size: 0.85rem; color: #fff; margin-bottom: 12px;">Task Status Distribution</h4>
+            <h4 style="font-size: 0.85rem; color: var(--text-primary); margin-bottom: 12px;">Task Status Distribution</h4>
             <canvas id="taskStatusChart" style="max-height: 220px;"></canvas>
           </div>
 
           <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px;">
-            <h4 style="font-size: 0.85rem; color: #fff; margin-bottom: 12px;">Engineer Capacity Load (%)</h4>
+            <h4 style="font-size: 0.85rem; color: var(--text-primary); margin-bottom: 12px;">Engineer Capacity Load (%)</h4>
             <canvas id="capacityLoadChart" style="max-height: 220px;"></canvas>
           </div>
         </div>
@@ -679,7 +715,7 @@ export class RolePortals {
       <div style="display:flex; flex-direction:column; gap:16px;">
         <!-- Header -->
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h3 style="font-size:1rem; font-weight:700; color:#fff;">🗓️ Team Video Meetings & AI Meeting Intelligence</h3>
+          <h3 style="font-size:1rem; font-weight:700; color: var(--text-primary);">🗓️ Team Video Meetings & AI Meeting Intelligence</h3>
           <button class="btn btn-primary btn-sm btn-open-meeting-modal">📅 Schedule Meeting</button>
         </div>
 
@@ -687,7 +723,7 @@ export class RolePortals {
         <div class="meeting-intel-panel">
           <div class="meeting-intel-header">
             <div>
-              <div style="font-size:0.9rem; font-weight:700; color:#fff;">🎙️ Meeting Intelligence Agent</div>
+              <div style="font-size:0.9rem; font-weight:700; color: var(--text-primary);">🎙️ Meeting Intelligence Agent</div>
               <div style="font-size:0.75rem; color:var(--text-muted);">Live speech-to-text · NLP action item extraction · Auto-task insertion</div>
             </div>
             <div style="display:flex; gap:8px;">
@@ -1009,7 +1045,7 @@ export class RolePortals {
     this.container.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="font-size: 1rem; font-weight: 700; color: #fff;">📄 SOP & Compliance Knowledge Hub</h3>
+          <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-primary);">📄 SOP & Compliance Knowledge Hub</h3>
           <span class="text-muted" style="font-size: 0.75rem;">${state.policies.length} standard policies indexed</span>
         </div>
 
@@ -1017,7 +1053,7 @@ export class RolePortals {
           ${state.policies.map(p => `
             <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <h4 style="font-size: 0.875rem; color: #fff; font-weight: 700;">${p.title}</h4>
+                <h4 style="font-size: 0.875rem; color: var(--text-primary); font-weight: 700;">${p.title}</h4>
                 <span class="search-item-tag">${p.category}</span>
               </div>
               <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; margin-bottom: 8px;">${p.summary}</p>
@@ -1038,7 +1074,7 @@ export class RolePortals {
     this.container.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="font-size: 1rem; font-weight: 700; color: #fff;">📜 Live Workspace Activity Trail & Audit Log</h3>
+          <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-primary);">📜 Live Workspace Activity Trail & Audit Log</h3>
           <span class="text-muted" style="font-size: 0.75rem;">${state.activityLogs.length} events logged</span>
         </div>
 
@@ -1047,7 +1083,7 @@ export class RolePortals {
             <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 14px;">
               <div>
                 <span style="font-weight: 700; font-size: 0.8rem; color: var(--cyan-primary);">${l.actor}</span>
-                <span style="font-size: 0.75rem; color: #fff; margin-left: 8px;">${l.eventType.replace('_', ' ').toUpperCase()}</span>
+                <span style="font-size: 0.75rem; color: var(--text-primary); margin-left: 8px;">${l.eventType.replace('_', ' ').toUpperCase()}</span>
                 <span style="font-size: 0.725rem; color: var(--text-secondary); margin-left: 6px;">[${l.taskId}] ${l.fromValue ? l.fromValue + ' ➔ ' : ''}${l.toValue || ''}</span>
               </div>
               <span style="font-size: 0.7rem; color: var(--text-muted);">${l.timestamp}</span>

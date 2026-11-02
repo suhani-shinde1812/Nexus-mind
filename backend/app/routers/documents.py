@@ -9,14 +9,14 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
-from app.deps import get_current_user, log_audit_event
+from app.deps import get_current_user, get_current_user_or_demo, log_audit_event
 from app.services import rag_service
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
 
 @router.get("", response_model=list[schemas.DocumentOut])
-def list_documents(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+def list_documents(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user_or_demo)):
     query = db.query(models.Document)
     if current_user.org_id:
         query = query.filter(models.Document.org_id == current_user.org_id)
@@ -93,7 +93,7 @@ async def upload_document(
 def query_knowledge_base(
     payload: schemas.RagQueryIn,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user_or_demo),
 ):
     """Execute hybrid RAG query with semantic matching, tenant scoping & source citations."""
     return rag_service.query_rag_knowledge_base(db, payload.query, top_k=payload.top_k, current_user=current_user)

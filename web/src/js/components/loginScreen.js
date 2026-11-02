@@ -60,28 +60,11 @@ export function mountLoginScreen(onSuccess) {
         box-shadow: 0 0 14px rgba(0, 242, 254, 0.2);
       }
 
-      .demo-section {
-        background: rgba(139, 92, 246, 0.08); border: 1px solid rgba(139, 92, 246, 0.35);
-        border-radius: 14px; padding: 14px; margin-bottom: 18px;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-      }
-      .demo-title {
-        font-size: 0.72rem; font-weight: 800; color: #00F2FE;
-        letter-spacing: 0.8px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
-        text-transform: uppercase; font-family: var(--font-mono);
-      }
-      .demo-roles-grid {
-        display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-      }
-      .demo-role-btn {
-        padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);
-        background: rgba(255,255,255,0.04); color: #F1F5F9; font-size: 0.75rem; font-weight: 700;
-        cursor: pointer; text-align: left; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-      }
-      .demo-role-btn:hover {
-        background: rgba(0, 242, 254, 0.2); border-color: #00F2FE; transform: translateY(-2px);
-        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4), 0 0 14px rgba(0, 242, 254, 0.3);
-      }
+      
+      
+      
+      
+      
 
       .divider {
         display: flex; align-items: center; text-align: center; color: #64748B;
@@ -189,15 +172,7 @@ export function mountLoginScreen(onSuccess) {
     loginForm.classList.add('hidden');
   });
 
-  // Demo role buttons
-  overlay.querySelectorAll('.demo-role-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const role = e.currentTarget.getAttribute('data-role');
-      store.loginDemo(role);
-      overlay.remove();
-      onSuccess();
-    });
-  });
+// Demo login disabled: real users authenticate through database
 
   // Login handler
   loginForm.addEventListener('submit', async (e) => {
@@ -207,7 +182,7 @@ export function mountLoginScreen(onSuccess) {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Signing in…';
 
-    const email = overlay.querySelector('#nexusLoginEmail').value.trim();
+    const email = overlay.querySelector('#nexusLoginEmail').value.trim().toLowerCase();
     const password = overlay.querySelector('#nexusLoginPassword').value;
 
     try {
@@ -230,7 +205,7 @@ export function mountLoginScreen(onSuccess) {
     submitBtn.textContent = 'Creating Account…';
 
     const name = overlay.querySelector('#nexusRegName').value.trim();
-    const email = overlay.querySelector('#nexusRegEmail').value.trim();
+    const email = overlay.querySelector('#nexusRegEmail').value.trim().toLowerCase();
     const password = overlay.querySelector('#nexusRegPassword').value;
     const app_role = overlay.querySelector('#nexusRegRole').value;
     const roleLabels = {

@@ -12,9 +12,12 @@ from app.database import get_db
 from app.security import decode_token, has_permission
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 
 def get_user_from_token(token: str, db: Session) -> models.User | None:
+    if not token:
+        return None
     payload = decode_token(token)
     if not payload or payload.get("type") != "access":
         return None
@@ -34,6 +37,27 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+
+def get_current_user_or_demo(
+    token: str | None = Depends(oauth2_scheme_optional),
+    db: Session = Depends(get_db),
+) -> models.User:
+    if token:
+        user = get_user_from_token(token, db)
+        if user and user.is_active:
+            return user
+    # Demo mode fallback: Team Lead or first active user
+    demo_user = db.query(models.User).filter(models.User.email == "sarah.jenkins@nexusmind.ai").first()
+    if not demo_user:
+        demo_user = db.query(models.User).filter(models.User.is_active == True).first()
+    if demo_user:
+        return demo_user
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 def require_permission(permission: str) -> Callable:

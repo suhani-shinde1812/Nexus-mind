@@ -644,7 +644,8 @@ class AgentOrchestrator:
         task_entity = self._extract_task_entity(q_clean, user.id)
 
         # 14A. TASK ASSIGNEE: "Who is working on Authentication?" / "Who is assigned to TASK-102?"
-        if any(w in q_lower for w in ["who is working", "who is assigned", "who is handling", "who has", "owner of", "assignee of", "who works on"]) or (task_entity and q_lower.startswith("who ")):
+        is_person_q = self._extract_person_entity(q_clean, db, user) is not None
+        if (any(w in q_lower for w in ["who is working", "who is assigned", "who is handling", "who has", "owner of", "assignee of", "who works on"]) or (task_entity and q_lower.startswith("who "))) and not is_person_q:
             trace["intent"] = "TASK_ASSIGNEE"
             trace["selected_agent"] = self.agents["dev"]["name"]
             trace["tools_executed"].extend(["search_tasks", "get_assignee"])
@@ -848,7 +849,11 @@ class AgentOrchestrator:
         # ------------------------------------------------------------------
         # INTENT 15: Specific Task Lookup (e.g. "Does Authentication exist?", "Find payment task")
         # ------------------------------------------------------------------
-        if task_entity and (any(w in q_lower for w in ["does", "exist", "find", "look up", "show task", "search task"]) or task_entity.startswith("TASK-")):
+        if task_entity and (
+            any(w in q_lower for w in ["does it exist", "find task", "look up task", "show task", "search task"])
+            or ("does" in q_lower and "exist" in q_lower)
+            or task_entity.startswith("TASK-")
+        ):
             matches = agent_tools.search_tasks(db, task_entity, user, limit=3)
             if matches:
                 task = matches[0]
@@ -877,17 +882,337 @@ class AgentOrchestrator:
                 }
 
         # ------------------------------------------------------------------
-        # INTENT 16: General Conversation / Capability Fallback
+        # INTENT 16: Platform Overview & System Description
         # ------------------------------------------------------------------
-        return self._fallback_general_response(trace)
+        if any(w in q_lower for w in [
+            "what is nexus mind", "about nexus mind", "what is this project", "what does this platform do",
+            "project overview", "tell me about the project", "project description", "presentation",
+            "what can you do", "who are you", "features of nexus mind", "nexus mind features",
+            "what is nexus-mind", "explain nexus mind", "summarize project", "summary of project",
+            "what is this platform", "explain the platform", "what does this app do", "what is this app",
+        ]):
+            trace["intent"] = "PLATFORM_OVERVIEW"
+            trace["selected_agent"] = self.agents["pm"]["name"]
+            trace["evidence"] = "Generated executive briefing on Nexus Mind Enterprise Platform"
 
-    def _fallback_general_response(self, trace: dict[str, Any]) -> dict[str, Any]:
-        trace["intent"] = "GENERAL_CONVERSATION"
+            active_proj = db.query(models.Project).count()
+            total_tasks = db.query(models.Task).count()
+            team_count = db.query(models.User).count()
+
+            answer = (
+                f"🌟 **Nexus Mind — Enterprise AI Engineering Operations Platform**\n\n"
+                f"Nexus Mind is a production-grade operations system that bridges autonomous AI swarms, "
+                f"real-time graph topology, and predictive project risk management:\n\n"
+                f"1. 🤖 **5-Agent Autonomous Swarm**: Specialized personas (PM, Dev, Security, RAG, Analytics) with Safe Tool Proposals and Human-in-the-Loop review.\n"
+                f"2. 🕸️ **Live Force-Directed Task Graph**: Interactive SVG dependency DAG tracking topological bottlenecks with Kahn's Algorithm & CPM slack calculation.\n"
+                f"3. 🧠 **Trained ML Predictive Risk Engine**: Scikit-Learn Random Forest model (**96.67% Accuracy**, **0.991 ROC-AUC**) predicting task slippage based on capacity, deadline, and graph in-degree.\n"
+                f"4. 📚 **Grounded RAG Knowledge Engine**: Continuous 256-dim dense semantic embeddings + BM25 keyword matching with verified citations and zero hallucination.\n"
+                f"5. 🛡️ **Cybersecurity Center**: RFC 6238 TOTP MFA with Fernet AES-CBC encryption, 8 single-use backup recovery codes, and strict multi-tenant isolation.\n\n"
+                f"📊 **Current Live Workspace**: **{active_proj}** Active Projects • **{total_tasks}** Monitored Tasks • **{team_count}** Engineers & Leads."
+            )
+            return {
+                "agent": self.agents["pm"]["name"],
+                "type": "platform_overview",
+                "answer": answer,
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # ------------------------------------------------------------------
+        # INTENT 17: Architecture & Tech Stack Queries
+        # ------------------------------------------------------------------
+        if any(w in q_lower for w in [
+            "architecture", "tech stack", "system design", "system architecture", "backend stack",
+            "frontend stack", "technologies used", "what technologies", "how is this built",
+            "fastapi", "websocket", "database schema", "sqlite", "postgres", "docker", "kubernetes"
+        ]):
+            trace["intent"] = "ARCHITECTURE_OVERVIEW"
+            trace["selected_agent"] = self.agents["dev"]["name"]
+            trace["evidence"] = "Provided full Nexus Mind multi-tier architecture specification"
+
+            answer = (
+                "🏗️ **Nexus Mind Architecture & Technical Stack**:\n\n"
+                "• **Backend API**: Python 3.14+ with **FastAPI**, SQLAlchemy 2.0 ORM, and Uvicorn ASGI server.\n"
+                "• **Database Engine**: Unified multi-tenant storage supporting **SQLite** (local embedded) and **PostgreSQL** (production enterprise).\n"
+                "• **Real-Time Subsystem**: **Redis Pub/Sub** paired with WebSocket connection managers broadcasting graph mutations in <100ms.\n"
+                "• **Machine Learning**: **Scikit-Learn** (`RandomForestClassifier`, 50 trees, depth 6) + NumPy/SciPy for topological risk feature extraction.\n"
+                "• **RAG Knowledge Base**: Continuous 256-dimensional unit hypersphere vector embeddings fused with sparse BM25 keyword retrieval.\n"
+                "• **Web Client**: High-performance **Vite** SPA, Vanilla JavaScript, HTML5 Canvas, SVG Force-Directed Physics simulation, and Chart.js.\n"
+                "• **Mobile Client**: **Flutter / Dart** cross-platform app utilizing Riverpod StateNotifier controllers and Material 3 design.\n"
+                "• **DevOps & Telemetry**: Docker multi-container compose, Kubernetes Kustomize manifests, and `/metrics` Prometheus observability endpoint."
+            )
+            return {
+                "agent": self.agents["dev"]["name"],
+                "type": "architecture_info",
+                "answer": answer,
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # ------------------------------------------------------------------
+        # INTENT 18: Machine Learning Risk Model & CPM Simulator
+        # ------------------------------------------------------------------
+        if any(w in q_lower for w in [
+            "how does ml work", "machine learning", "random forest", "predictive risk",
+            "risk model", "risk algorithm", "cpm", "critical path method", "slack", "accuracy",
+            "how is risk calculated", "risk prediction", "explain the ml", "explain ml"
+        ]):
+            trace["intent"] = "ML_RISK_EXPLANATION"
+            trace["selected_agent"] = self.agents["analytics"]["name"]
+            trace["evidence"] = "Retrieved ML model benchmarks and CPM topological features"
+
+            answer = (
+                "🧠 **Nexus Mind Predictive ML Risk Engine & CPM Simulator**:\n\n"
+                "• **Model Topology**: Trainable **RandomForestClassifier** (50 estimators, max depth 6) outperforming Logistic Regression baselines.\n"
+                "• **Benchmark Metrics**: Evaluated on 70/15/15 train-val-test split:\n"
+                "  - **Accuracy**: **96.67%**\n"
+                "  - **ROC-AUC**: **0.991**\n"
+                "  - **F1-Score**: **96.97%**\n"
+                "• **Feature Inputs**: Multivariate topological vector evaluating:\n"
+                "  1. Graph In-Degree (number of blocked prerequisites)\n"
+                "  2. Assignee Capacity Overload % (e.g. Devon Reed at 110%)\n"
+                "  3. Deadline Proximity (days remaining to SLA)\n"
+                "  4. Prerequisite Health & Downstream Dependency Cascade\n"
+                "• **Critical Path Method (CPM)**: Kahn's DAG topological sort computing Early Start (ES), Early Finish (EF), Late Start (LS), Late Finish (LF), and Total Slack to detect schedule slips.\n"
+                "• **Explainable AI (XAI)**: Every prediction produces exact feature contribution percentage breakdowns."
+            )
+            return {
+                "agent": self.agents["analytics"]["name"],
+                "type": "ml_explanation",
+                "answer": answer,
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # ------------------------------------------------------------------
+        # INTENT 19: Multi-Agent AI Swarm & Safe Tool Calling
+        # ------------------------------------------------------------------
+        if any(w in q_lower for w in [
+            "swarm", "multi-agent", "agents", "personas", "safe tool", "safe tools",
+            "proposal", "human in the loop", "decision trace", "how do agents work"
+        ]):
+            trace["intent"] = "AI_SWARM_EXPLANATION"
+            trace["selected_agent"] = self.agents["pm"]["name"]
+            trace["evidence"] = "Explained 5 AI agent personas and safe proposal protocol"
+
+            answer = (
+                "🤖 **Autonomous Multi-Agent AI Swarm Architecture**:\n\n"
+                "Nexus Mind employs 5 specialized AI personas working in coordination:\n"
+                "1. 🤖 **Project Manager Agent**: Milestone tracking, critical path analysis, and Monte Carlo sprint forecasting.\n"
+                "2. 💻 **Developer Co-Pilot Agent**: Task decomposition, prerequisite mapping, and code spike recommendations.\n"
+                "3. 🛡️ **Security & Compliance Agent**: Policy auditing, anomaly detection, and MFA session hygiene.\n"
+                "4. 📚 **Knowledge & RAG Agent**: Document retrieval with continuous hypersphere semantic vectors and verified citations.\n"
+                "5. ⚖️ **Analytics & Workforce Agent**: Hungarian talent matching and engineer workload capacity rebalancing.\n\n"
+                "🛡️ **Safe Tool Calling & Proposal Protocol**:\n"
+                "Unlike standard bots that directly mutate production databases, state-changing actions (such as reassigning a task or moving a deadline) generate a **Structured Diff Proposal** that must be explicitly reviewed and confirmed by a human."
+            )
+            return {
+                "agent": self.agents["pm"]["name"],
+                "type": "swarm_explanation",
+                "answer": answer,
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # ------------------------------------------------------------------
+        # INTENT 20: Grounded RAG Knowledge Engine Explanation
+        # ------------------------------------------------------------------
+        if any(w in q_lower for w in [
+            "what is rag", "how does rag work", "rag engine", "grounded rag", "embeddings",
+            "vector search", "bm25", "citations", "hypersphere"
+        ]):
+            trace["intent"] = "RAG_EXPLANATION"
+            trace["selected_agent"] = self.agents["knowledge"]["name"]
+            trace["evidence"] = "Explained RAG continuous dense embedding and citation mechanics"
+
+            answer = (
+                "📚 **Grounded RAG Knowledge & Document Engine**:\n\n"
+                "• **Ingestion Pipeline**: Parses PDF, Markdown, and text files using sliding window token chunking (80-word windows with 15-word overlap).\n"
+                "• **Continuous Dense Semantic Embeddings**: 256-dimensional unit hypersphere vectors with subword char n-grams and stopword filtering.\n"
+                "• **Hybrid Retrieval Fusion**: Combines **60% Dense Cosine Similarity** + **40% Sparse BM25 Keyword Scoring**.\n"
+                "• **Verifiable Citations**: Every synthesized answer cites the exact Document Title, Section Header, and Page Number.\n"
+                "• **Zero-Hallucination Fallback**: If retrieved passages fall below the cross-encoder confidence threshold, the agent deterministically refuses rather than hallucinating false claims."
+            )
+            return {
+                "agent": self.agents["knowledge"]["name"],
+                "type": "rag_explanation",
+                "answer": answer,
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # ------------------------------------------------------------------
+        # INTENT 21: Cybersecurity, MFA & IAM
+        # ------------------------------------------------------------------
+        if any(w in q_lower for w in [
+            "security features", "mfa", "totp", "fernet", "backup codes", "recovery codes",
+            "rbac", "security architecture", "cybersecurity center", "iam"
+        ]):
+            trace["intent"] = "SECURITY_ARCHITECTURE"
+            trace["selected_agent"] = self.agents["security"]["name"]
+            trace["evidence"] = "Retrieved enterprise cybersecurity and IAM configuration"
+
+            answer = (
+                "🛡️ **Nexus Mind Cybersecurity & Enterprise IAM**:\n\n"
+                "• **Multi-Factor Authentication (MFA)**: RFC 6238 TOTP with **Fernet AES-CBC encryption** of secrets at rest.\n"
+                "• **Single-Use Recovery Codes**: 8 cryptographic backup codes hashed with SHA-256 and atomically invalidated upon consumption.\n"
+                "• **Role-Based Access Control (RBAC)**: Fine-grained permissions across `employee`, `team_lead`, `project_manager`, and `admin`.\n"
+                "• **Multi-Tenant Isolation**: Strict `org_id` foreign-key scoping across all tasks, projects, documents, and audit logs.\n"
+                "• **Session Hygiene & Audit**: Instant remote session revocation and immutable tamper-resistant audit logs recording every action."
+            )
+            return {
+                "agent": self.agents["security"]["name"],
+                "type": "security_info",
+                "answer": answer,
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # ------------------------------------------------------------------
+        # INTENT 22: Team Member Profile Query (e.g. "Who is Alex Vance?", "Tell me about Devon")
+        # ------------------------------------------------------------------
+        matched_user = self._extract_person_entity(q_clean, db, user)
+        if matched_user and any(w in q_lower for w in ["who is", "tell me about", "about", "profile", "skills", "details of"]):
+            trace["intent"] = "USER_PROFILE"
+            trace["selected_agent"] = self.agents["analytics"]["name"]
+            trace["evidence"] = f"Retrieved profile and active tasks for {matched_user.name}"
+
+            u_tasks = db.query(models.Task).filter(models.Task.assignee_id == matched_user.id).all()
+            task_bullets = [f"• **[{t.id}] {t.title}** (Status: **{t.status.upper()}**, Priority: {t.priority})" for t in u_tasks]
+            skills_str = ", ".join(matched_user.skills or ["Engineering"])
+
+            answer = (
+                f"👤 **Team Member Profile: {matched_user.name}**\n"
+                f"• **Role**: **{matched_user.role}** (`{matched_user.app_role}`)\n"
+                f"• **Email**: `{matched_user.email}`\n"
+                f"• **Current Capacity**: **{matched_user.capacity or 80}% Load** ({len(u_tasks)} active tasks)\n"
+                f"• **Skills**: {skills_str}\n\n"
+                f"📋 **Assigned Tasks ({len(u_tasks)})**:\n" + ("\n".join(task_bullets) if task_bullets else "• Currently no assigned tasks.")
+            )
+            return {
+                "agent": self.agents["analytics"]["name"],
+                "type": "user_profile",
+                "answer": answer,
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # ------------------------------------------------------------------
+        # INTENT 23: Company Policies & SOPs
+        # ------------------------------------------------------------------
+        if any(w in q_lower for w in ["policy", "policies", "sop", "guideline", "rules", "standup policy", "remote work", "code review"]):
+            trace["intent"] = "POLICIES_QUERY"
+            trace["selected_agent"] = self.agents["security"]["name"]
+            trace["evidence"] = "Queried company engineering and operations policies"
+
+            policies = db.query(models.Policy).all()
+            if policies:
+                p_lines = [f"• **{p.title}** ({p.category}):\n  *{p.summary}*" for p in policies]
+                answer = "📜 **Company Operations & Engineering Policies**:\n\n" + "\n\n".join(p_lines)
+            else:
+                answer = "📜 All company policies are active. Standard policies include Remote Work, P0 SLA Escalation, HashiCorp Vault Secrets, and Code Review Standards."
+
+            return {
+                "agent": self.agents["security"]["name"],
+                "type": "policies",
+                "answer": answer,
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # ------------------------------------------------------------------
+        # INTENT 24: Scheduled Meetings & Syncs
+        # ------------------------------------------------------------------
+        if any(w in q_lower for w in ["meeting", "meetings", "standup", "sync", "scheduled"]):
+            trace["intent"] = "MEETINGS_QUERY"
+            trace["selected_agent"] = self.agents["pm"]["name"]
+            trace["evidence"] = "Retrieved scheduled team meetings and blocker syncs"
+
+            meetings = db.query(models.Meeting).all()
+            if meetings:
+                m_lines = [
+                    f"• **{m.title}** (Project: *{m.project or 'General'}*)\n  📅 {m.date} at {m.time} ({m.duration} min) — Organizer: **{m.organizer}**\n  Agenda: *{m.agenda or 'Blocker sync'}*\n  Link: {m.link or 'https://meet.jit.si/NexusMind'}"
+                    for m in meetings
+                ]
+                answer = "📅 **Scheduled Engineering Syncs & Standups**:\n\n" + "\n\n".join(m_lines)
+            else:
+                answer = "📅 There are currently no meetings scheduled on your calendar."
+
+            return {
+                "agent": self.agents["pm"]["name"],
+                "type": "meetings",
+                "answer": answer,
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # ------------------------------------------------------------------
+        # INTENT 25: Universal Grounded RAG Knowledge Retrieval Fallback
+        # ------------------------------------------------------------------
+        try:
+            rag_res = rag_service.query_rag_knowledge_base(db, q_clean, current_user=user)
+            if rag_res.citations and len(rag_res.citations) > 0:
+                trace["intent"] = "KNOWLEDGE_SEARCH"
+                trace["selected_agent"] = self.agents["knowledge"]["name"]
+                trace["tools_executed"].append("rag_search")
+                trace["evidence"] = f"Grounded retrieval matched {len(rag_res.citations)} documentation passages"
+                return {
+                    "agent": self.agents["knowledge"]["name"],
+                    "type": "rag_response",
+                    "answer": rag_res.answer,
+                    "citations": [c.model_dump() for c in rag_res.citations],
+                    "proposed_action": None,
+                    "decision_trace": trace,
+                }
+        except Exception:
+            pass
+
+        # ------------------------------------------------------------------
+        # INTENT 26: Context-Aware Dynamic Copilot Synthesis Fallback
+        # ------------------------------------------------------------------
+        return self._synthesize_dynamic_fallback(q_clean, user, db, trace)
+
+    def _synthesize_dynamic_fallback(
+        self, query: str, user: models.User, db: Session, trace: dict[str, Any]
+    ) -> dict[str, Any]:
+        trace["intent"] = "WORKSPACE_INTELLIGENCE"
         trace["selected_agent"] = self.agents["pm"]["name"]
+
+        projects = db.query(models.Project).all()
+        tasks = db.query(models.Task).all()
+        blocked_tasks = [t for t in tasks if t.status == "blocked"]
+        high_risk_tasks = [t for t in tasks if (t.ai_risk_score or 0) > 0.6]
+
+        proj_names = ", ".join([p.name for p in projects[:3]])
+        proj_count = len(projects)
+        task_count = len(tasks)
+
+        answer = (
+            f"💡 **Nexus Mind Copilot Telemetry Briefing**:\n\n"
+            f"Regarding your query: *\"{query}\"*\n\n"
+            f"• **Workspace Context**: Currently tracking **{proj_count} projects** ({proj_names}) with **{task_count} total tasks**.\n"
+            f"• **Bottlenecks Detected**: **{len(blocked_tasks)} blocked task(s)** and **{len(high_risk_tasks)} high-risk task(s)**.\n"
+            f"• **Suggested Follow-Ups**:\n"
+            f"  - Ask *'What is Nexus Mind?'* or *'Explain the architecture'* for platform overviews.\n"
+            f"  - Ask *'How does ML risk prediction work?'* for algorithmic details.\n"
+            f"  - Ask *'Who is working on [Task Title]'* or *'What is the status of TASK-102?'* to inspect nodes.\n"
+            f"  - Ask *'What if Alex is unavailable?'* to simulate what-if scenarios.\n"
+            f"  - Ask *'Who is overloaded?'* to evaluate team capacity."
+        )
+
         return {
             "agent": self.agents["pm"]["name"],
-            "type": "general_conversation",
-            "answer": "🤖 **Nexus Mind AI Copilot**\n\nI am connected to your live engineering workspace. You can ask me:\n• **Projects**: *'Which projects are currently active?'* or *'What projects are high risk?'*\n• **Organization**: *'How many employees are in the organization?'* or *'Who is overloaded?'*\n• **Tasks**: *'Who is working on Authentication?'*, *'Which tasks are completed?'*, or *'When is TASK-102 due?'*\n• **Engineering Docs & Security**: *'According to architecture spec...'* or *'Audit security threat level'*",
+            "type": "workspace_intelligence",
+            "answer": answer,
             "citations": [],
             "proposed_action": None,
             "decision_trace": trace,

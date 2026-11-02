@@ -8,31 +8,11 @@ import { wsClient } from './wsClient.js';
 
 const THEME_KEY = 'NEXUS_MIND_THEME_V1';
 
-const SEEDED_USERS = [
-  { id: 'u1', name: 'Alex Vance', email: 'alex.vance@nexusmind.ai', role: 'Frontend Lead', app_role: 'employee', avatar: 'AV', capacity: 80, active_tasks: 3, skills: ['Frontend', 'React', 'UI', 'Dashboard', 'Authorization'] },
-  { id: 'u2', name: 'Sarah Jenkins', email: 'sarah.jenkins@nexusmind.ai', role: 'Team Lead', app_role: 'team_lead', avatar: 'SJ', capacity: 60, active_tasks: 2, skills: ['Management', 'Monitoring', 'SLA', 'Planning'] },
-  { id: 'u3', name: 'Devon Reed', email: 'devon.reed@nexusmind.ai', role: 'Backend Engineer', app_role: 'employee', avatar: 'DR', capacity: 110, active_tasks: 5, skills: ['Backend', 'Database', 'API', 'Postgres', 'Cache', 'Terraform', 'Infrastructure'] },
-  { id: 'u4', name: 'Priya Sharma', email: 'priya.sharma@nexusmind.ai', role: 'AI/ML Engineer', app_role: 'employee', avatar: 'PS', capacity: 40, active_tasks: 1, skills: ['AI', 'ML', 'Vector', 'Search', 'Python', 'Websocket'] },
-  { id: 'u5', name: 'Marcus Chen', email: 'marcus.chen@nexusmind.ai', role: 'Project Manager', app_role: 'project_manager', avatar: 'MC', capacity: 50, active_tasks: 2, skills: ['Planning', 'Coordination', 'Reporting'] },
-  { id: 'u6', name: 'Elena Rostova', email: 'elena.rostova@nexusmind.ai', role: 'Administrator', app_role: 'admin', avatar: 'ER', capacity: 30, active_tasks: 0, skills: ['Security', 'OAuth', 'Compliance', 'Infrastructure'] },
-];
+const SEEDED_USERS = [];
 
-const SEEDED_PROJECTS = [
-  { id: 'p1', name: 'Sprint Alpha - Cloud Migration', lead: 'Sarah Jenkins', deadline: '2026-08-15', progress: 65 },
-  { id: 'p2', name: 'Mobile App v2.0', lead: 'Alex Vance', deadline: '2026-09-01', progress: 40 },
-  { id: 'p3', name: 'Security & Compliance', lead: 'Elena Rostova', deadline: '2026-08-01', progress: 90 },
-];
+const SEEDED_PROJECTS = [];
 
-const SEEDED_TASKS = [
-  { id: 'TASK-101', title: 'Cloud Infrastructure Provisioning (Terraform)', description: 'Deploy core AWS VPC, ECS clusters, and security policies via Terraform.', project: 'Sprint Alpha - Cloud Migration', assignee: 'Devon Reed', status: 'done', priority: 'High', dependsOn: [], x: 120, y: 180, dueDate: '2026-07-20', aiRiskScore: 0.1, riskReason: null },
-  { id: 'TASK-102', title: 'PostgreSQL Database Schema & Migration Script', description: 'Design partitioned relational schema with Alembic automated migration triggers.', project: 'Sprint Alpha - Cloud Migration', assignee: 'Devon Reed', status: 'in_progress', priority: 'Critical', dependsOn: ['TASK-101'], x: 300, y: 140, dueDate: '2026-07-28', aiRiskScore: 0.85, riskReason: 'Devon Reed is at 110% capacity & SLA deadline approaching.' },
-  { id: 'TASK-103', title: 'OAuth2 Authentication API Gateway', description: 'Implement JWT refresh rotation and RBAC middleware on gateway endpoints.', project: 'Security & Compliance', assignee: 'Alex Vance', status: 'in_progress', priority: 'High', dependsOn: ['TASK-102'], x: 480, y: 140, dueDate: '2026-07-30', aiRiskScore: 0.75, riskReason: 'Prerequisite TASK-102 is at high risk of slipping.' },
-  { id: 'TASK-104', title: 'React Dashboard UI & Role Authorization Views', description: 'Design customized role portal widgets for employees, leads, and admins.', project: 'Mobile App v2.0', assignee: 'Alex Vance', status: 'blocked', priority: 'High', dependsOn: ['TASK-103'], x: 660, y: 200, dueDate: '2026-08-05', aiRiskScore: 0.92, riskReason: 'BLOCKED by TASK-103 which is delayed downstream.' },
-  { id: 'TASK-105', title: 'AI Assistant Vector Search Integration (Milvus)', description: 'Build semantic embedding index for instant knowledge retrieval.', project: 'Sprint Alpha - Cloud Migration', assignee: 'Priya Sharma', status: 'in_progress', priority: 'Medium', dependsOn: ['TASK-101'], x: 300, y: 320, dueDate: '2026-08-02', aiRiskScore: 0.2, riskReason: null },
-  { id: 'TASK-106', title: 'Real-Time Notification Websocket Cluster', description: 'Redis pub/sub cluster for live socket broadcasts to all active tabs.', project: 'Mobile App v2.0', assignee: 'Devon Reed', status: 'blocked', priority: 'Medium', dependsOn: ['TASK-102', 'TASK-105'], x: 480, y: 320, dueDate: '2026-08-08', aiRiskScore: 0.8, riskReason: 'Assignee Devon Reed has 5 assigned tasks simultaneously.' },
-  { id: 'TASK-107', title: 'Redis Caching Layer & Rate Limiter Middleware', description: 'Token bucket rate-limiting and query result caching with Redis.', project: 'Security & Compliance', assignee: 'Devon Reed', status: 'in_progress', priority: 'High', dependsOn: ['TASK-103'], x: 660, y: 340, dueDate: '2026-08-10', aiRiskScore: 0.65, riskReason: 'Depends on TASK-103 API Gateway.' },
-  { id: 'TASK-108', title: 'End-to-End System SLA Monitoring Dashboard', description: 'Unified monitoring console with anomaly alert triggers and latency gauges.', project: 'Sprint Alpha - Cloud Migration', assignee: 'Sarah Jenkins', status: 'in_progress', priority: 'Critical', dependsOn: ['TASK-104', 'TASK-107'], x: 840, y: 260, dueDate: '2026-08-14', aiRiskScore: 0.4, riskReason: 'Final release milestone node.' },
-];
+const SEEDED_TASKS = [];
 
 const SEEDED_POLICIES = [
   { id: 'pol-1', title: 'Remote Work & Daily Standup Policy', category: 'HR & Operations', tags: ['work', 'policy', 'remote'], summary: 'Flexible hybrid schedule requires mandatory daily standup updates and core working hours (10 AM - 4 PM IST).' },
@@ -67,7 +47,7 @@ class StateStore {
       theme: localStorage.getItem(THEME_KEY) || 'dark',
       currentRole: 'employee',
       currentView: 'graph', // 'graph' | 'kanban' | 'timeline'
-      currentUser: isAuthed ? null : SEEDED_USERS[1],
+      currentUser: null,
       users: isAuthed ? [] : [...SEEDED_USERS],
       projects: isAuthed ? [] : [...SEEDED_PROJECTS],
       tasks: isAuthed ? [] : JSON.parse(JSON.stringify(SEEDED_TASKS)),
@@ -135,28 +115,8 @@ class StateStore {
   }
 
   async register(payload) {
-    try {
-      await api.register(payload);
-      await this.init();
-    } catch (err) {
-      const initials = payload.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'NM';
-      const newUser = {
-        id: `USR-${Date.now().toString().slice(-4)}`,
-        name: payload.name,
-        email: payload.email,
-        role: payload.role || 'Software Engineer',
-        app_role: payload.app_role || 'employee',
-        avatar: initials,
-        capacity: 40,
-        activeTasks: 0,
-        skills: payload.skills || ['Python', 'JavaScript']
-      };
-      this.state.users.push(newUser);
-      this.state.currentUser = newUser;
-      this.state.currentRole = newUser.app_role;
-      this.addToast('Account Created', `Welcome ${newUser.name}! Logged in as ${newUser.role}`, 'success');
-      this.saveState();
-    }
+    await api.register(payload);
+    await this.init();
   }
 
   loginDemo(roleName = 'team_lead') {

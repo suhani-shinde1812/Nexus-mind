@@ -543,20 +543,26 @@ export class LiveTaskGraphEngine {
         `;
       }
 
+      const isLight = typeof document !== 'undefined' && document.body.classList.contains('theme-light');
+      const nodeBg = isLight ? '#FFFFFF' : '#0F172A';
+      const nodeText = isLight ? '#0F172A' : '#FFFFFF';
+      const labelBg = isLight ? 'rgba(255, 255, 255, 0.98)' : 'rgba(15, 23, 42, 0.95)';
+      const labelText = isLight ? '#0F172A' : '#F3F4F6';
+
       svgHtml += `
         <g class="graph-node-group" data-id="${node.id}" style="cursor: pointer;">
           <!-- Node Circle Body -->
-          <circle cx="${node.x}" cy="${node.y}" r="24" fill="#0F172A" stroke="${statusColor}" stroke-width="${isSelected ? 4 : 3}" filter="url(#glow-node)" pointer-events="all"/>
+          <circle cx="${node.x}" cy="${node.y}" r="24" fill="${nodeBg}" stroke="${statusColor}" stroke-width="${isSelected ? 4 : 3}" filter="${isLight ? '' : 'url(#glow-node)'}" pointer-events="all"/>
           
           <!-- Node ID text -->
-          <text x="${node.x}" y="${node.y + 4}" text-anchor="middle" fill="#FFFFFF" font-size="11" font-weight="800" font-family="'JetBrains Mono', monospace" pointer-events="none">
+          <text x="${node.x}" y="${node.y + 4}" text-anchor="middle" fill="${nodeText}" font-size="11" font-weight="800" font-family="'JetBrains Mono', monospace" pointer-events="none">
             ${node.id && node.id.includes('-') ? node.id.split('-')[1] : (node.id || 'N')}
           </text>
 
 
           <!-- Label Card -->
-          <rect x="${node.x - 65}" y="${node.y + 30}" width="130" height="24" rx="6" fill="rgba(15, 23, 42, 0.95)" stroke="${statusColor}" stroke-width="1.2" pointer-events="all"/>
-          <text x="${node.x}" y="${node.y + 46}" text-anchor="middle" fill="#F3F4F6" font-size="9.5" font-weight="700" pointer-events="none">
+          <rect x="${node.x - 65}" y="${node.y + 30}" width="130" height="24" rx="6" fill="${labelBg}" stroke="${statusColor}" stroke-width="1.2" pointer-events="all"/>
+          <text x="${node.x}" y="${node.y + 46}" text-anchor="middle" fill="${labelText}" font-size="9.5" font-weight="700" pointer-events="none">
             ${node.title.length > 18 ? node.title.substring(0, 16) + '...' : node.title}
           </text>
 
@@ -607,7 +613,7 @@ export class LiveTaskGraphEngine {
         </div>
       ` : ''}
 
-      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 16px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px;">
+      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 16px; background: var(--bg-space); border: 1px solid var(--border-color); padding: 14px; border-radius: 10px;">
         <div><strong>👤 Assigned Owner:</strong> ${task.assignee}</div>
         <div><strong>🔥 Priority Level:</strong> ${task.priority}</div>
 
@@ -615,7 +621,7 @@ export class LiveTaskGraphEngine {
           ${this.editDeadlineMode ? `
             <div style="display:flex; align-items:center; gap:8px;">
               <strong>📅 SLA Target Date:</strong>
-              <input type="date" id="editDeadlineInput" value="${task.dueDate}" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 6px; padding: 4px 6px; color: #fff; font-size: 0.8rem;" />
+              <input type="date" id="editDeadlineInput" value="${task.dueDate}" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 4px 8px; color: var(--text-primary); font-size: 0.8rem;" />
               <button id="btnSaveDeadline" class="btn btn-primary btn-xs">Save</button>
               <button id="btnCancelDeadline" class="btn btn-ghost btn-xs">Cancel</button>
             </div>
@@ -631,7 +637,7 @@ export class LiveTaskGraphEngine {
           <strong>🔗 Prerequisite Dependencies:</strong>
           <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px;">
             ${task.dependsOn && task.dependsOn.length > 0 ? task.dependsOn.map(id => `
-              <span style="font-size: 0.75rem; background: rgba(0,242,254,0.15); border: 1px solid var(--cyan-primary); color: #fff; padding: 2px 8px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px;">
+              <span style="font-size: 0.75rem; background: rgba(2,132,199,0.12); border: 1px solid var(--cyan-primary); color: var(--cyan-primary); font-weight:700; padding: 2px 8px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px;">
                 ${id}
                 <button class="btn-remove-dep" data-task-id="${task.id}" data-dep-id="${id}" style="background:none; border:none; color:#EF4444; font-size:10px; cursor:pointer;">&times;</button>
               </span>
@@ -808,7 +814,7 @@ export class LiveTaskGraphEngine {
     panel.id = 'cpmSidePanel';
     panel.style.cssText = `
       position: absolute; top: 80px; right: 16px; width: 280px;
-      background: rgba(11,15,25,0.95); border: 1px solid rgba(255,215,0,0.3);
+      background: var(--bg-surface); color: var(--text-primary); border: 1px solid rgba(255,215,0,0.3);
       border-radius: 12px; padding: 14px; z-index: 20;
       backdrop-filter: blur(16px); box-shadow: 0 8px 32px rgba(0,0,0,0.5);
       max-height: 70vh; overflow-y: auto;

@@ -11,7 +11,7 @@ export async function renderEvaluationCenter(container) {
     <div class="evaluation-center-view" style="padding: 24px; max-width: 1200px; margin: 0 auto;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
         <div>
-          <h2 style="font-size: 22px; font-weight: 700; margin: 0; color: #fff; display: flex; align-items: center; gap: 10px;">
+          <h2 style="font-size: 22px; font-weight: 700; margin: 0; color: var(--text-primary); display: flex; align-items: center; gap: 10px;">
             <span style="background: rgba(127, 0, 255, 0.2); border: 1px solid #7f00ff; color: #7f00ff; padding: 4px 10px; border-radius: 8px; font-size: 14px;">
               BENCHMARKS
             </span>
@@ -21,7 +21,7 @@ export async function renderEvaluationCenter(container) {
             Verified, reproducible evaluation benchmarks across Grounded RAG, Autonomous Swarm, and Scikit-Learn Predictive ML.
           </p>
         </div>
-        <button id="btn-refresh-eval" style="background: #1e293b; border: 1px solid #334155; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+        <button id="btn-refresh-eval" style="background: #1e293b; border: 1px solid #334155; color: var(--text-primary); padding: 8px 16px; border-radius: 8px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
           🔄 Refresh Benchmarks
         </button>
       </div>
@@ -111,7 +111,7 @@ async function loadAndRenderEvalData() {
 
       <!-- Section 1: ML Model Benchmark (Baseline vs Candidate) -->
       <div style="background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
-        <h3 style="font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+        <h3 style="font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
           <span>🤖</span> Machine Learning Risk Engine: Candidate vs Baseline
           <span style="font-size: 11px; background: #1e293b; color: #94a3b8; padding: 2px 8px; border-radius: 4px; font-weight: 500;">
             v${ml.model_version || "2.1.0"}
@@ -158,7 +158,7 @@ async function loadAndRenderEvalData() {
       <!-- Section 2: Explainable AI Feature Importances -->
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px;">
         <div style="background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 20px;">
-          <h3 style="font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 12px;">📊 XAI Global Feature Attribution</h3>
+          <h3 style="font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px;">📊 XAI Global Feature Attribution</h3>
           <div style="display: flex; flex-direction: column; gap: 10px;">
             ${renderFeatureBar('Dependency Block Hazard', 26.98, '#ef4444')}
             ${renderFeatureBar('Prerequisite In-Degree Count', 20.86, '#f59e0b')}
@@ -169,7 +169,7 @@ async function loadAndRenderEvalData() {
         </div>
 
         <div style="background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 20px;">
-          <h3 style="font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 12px;">📚 Grounded RAG Quality Metrics</h3>
+          <h3 style="font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px;">📚 Grounded RAG Quality Metrics</h3>
           <div style="display: flex; flex-direction: column; gap: 12px; font-size: 12px;">
             <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #1f2937; padding-bottom: 8px;">
               <span style="color: #94a3b8;">Citation Exactness:</span>
@@ -177,15 +177,15 @@ async function loadAndRenderEvalData() {
             </div>
             <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #1f2937; padding-bottom: 8px;">
               <span style="color: #94a3b8;">Embedding Dimension:</span>
-              <span style="color: #fff; font-weight: 600;">256-dim Dense Hypersphere</span>
+              <span style="color: var(--text-primary); font-weight: 600;">256-dim Dense Hypersphere</span>
             </div>
             <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #1f2937; padding-bottom: 8px;">
               <span style="color: #94a3b8;">Hybrid Retrieval Fusion:</span>
-              <span style="color: #fff; font-weight: 600;">60% Dense Cosine + 40% BM25</span>
+              <span style="color: var(--text-primary); font-weight: 600;">60% Dense Cosine + 40% BM25</span>
             </div>
             <div style="display: flex; justify-content: space-between; padding-bottom: 4px;">
               <span style="color: #94a3b8;">Cross-Encoder Threshold:</span>
-              <span style="color: #fff; font-weight: 600;">0.14 normalized score cutoff</span>
+              <span style="color: var(--text-primary); font-weight: 600;">0.14 normalized score cutoff</span>
             </div>
           </div>
         </div>

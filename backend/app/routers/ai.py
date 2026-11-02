@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
-from app.deps import get_current_user
+from app.deps import get_current_user, get_current_user_or_demo
 from app.services import ai_service
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
@@ -81,7 +81,7 @@ def get_rebalance_plan(
 def query_agent_swarm(
     payload: dict,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user_or_demo),
 ):
     """Route natural language queries to specialized agents in the AI Swarm with decision trace."""
     from app.services.agent_orchestrator import swarm_orchestrator
@@ -93,7 +93,7 @@ def query_agent_swarm(
 @router.get("/proposals")
 def list_ai_proposals(
     status: str | None = None,
-    _: models.User = Depends(get_current_user),
+    _: models.User = Depends(get_current_user_or_demo),
 ):
     """List pending or executed AI safe action proposals."""
     from app.services.agent_orchestrator import proposal_store

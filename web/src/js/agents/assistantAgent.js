@@ -233,7 +233,77 @@ export class AiAssistantAgent {
       };
     }
 
-    // 13. General task match
+    // 13. Platform Overview
+    if (text.includes('what is nexus mind') || text.includes('about nexus mind') || text.includes('what is this project') || text.includes('what does this platform do') || text.includes('project overview') || text.includes('tell me about the project') || text.includes('presentation') || text.includes('what can you do') || text.includes('features of nexus mind') || text.includes('summarize project')) {
+      return {
+        type: 'platform_overview',
+        message: `🌟 **Nexus Mind — Enterprise AI Engineering Operations Platform**\n\nNexus Mind is a production-grade operations system that bridges autonomous AI swarms, real-time graph topology, and predictive project risk management:\n\n1. 🤖 **5-Agent Autonomous Swarm**: Specialized personas (PM, Dev, Security, RAG, Analytics) with Safe Tool Proposals.\n2. 🕸️ **Live Force-Directed Task Graph**: Interactive SVG dependency DAG tracking bottlenecks with Kahn's Algorithm & CPM slack.\n3. 🧠 **Trained ML Predictive Risk Engine**: Scikit-Learn Random Forest (**96.67% Accuracy**, **0.991 ROC-AUC**) predicting task slippage.\n4. 📚 **Grounded RAG Knowledge Engine**: Continuous 256-dim dense semantic embeddings + BM25 keyword matching with verified citations.\n5. 🛡️ **Cybersecurity Center**: RFC 6238 TOTP MFA with Fernet AES-CBC encryption and 8 single-use backup recovery codes.\n\n📊 **Live Workspace**: **${projects.length}** Active Projects • **${tasks.length}** Monitored Tasks • **${users.length}** Engineers & Leads.`
+      };
+    }
+
+    // 14. Architecture & Tech Stack
+    if (text.includes('architecture') || text.includes('tech stack') || text.includes('system design') || text.includes('technologies') || text.includes('fastapi') || text.includes('backend stack') || text.includes('frontend stack')) {
+      return {
+        type: 'architecture_info',
+        message: `🏗️ **Nexus Mind Architecture & Technical Stack**:\n\n• **Backend API**: Python 3.14+ with **FastAPI**, SQLAlchemy 2.0 ORM, and Uvicorn ASGI server.\n• **Database**: Unified storage supporting **SQLite** (local embedded) and **PostgreSQL** (production).\n• **Real-Time**: **Redis Pub/Sub** paired with WebSocket managers broadcasting graph mutations in <100ms.\n• **Machine Learning**: **Scikit-Learn** (Random Forest, depth 6) for topological risk feature extraction.\n• **RAG**: Continuous 256-dim unit hypersphere embeddings + sparse BM25 keyword scoring.\n• **Web Client**: High-performance **Vite** SPA, Vanilla JS, HTML5 Canvas, SVG Force-Directed simulation, Chart.js.\n• **Mobile Client**: **Flutter / Dart** cross-platform app with Riverpod & Material 3.\n• **DevOps**: Docker multi-container compose, Kubernetes manifests, and `/metrics` Prometheus endpoint.`
+      };
+    }
+
+    // 15. ML Risk Prediction & CPM
+    if (text.includes('how does ml work') || text.includes('machine learning') || text.includes('random forest') || text.includes('predictive risk') || text.includes('risk model') || text.includes('cpm') || text.includes('critical path') || text.includes('accuracy') || text.includes('how is risk calculated')) {
+      return {
+        type: 'ml_explanation',
+        message: `🧠 **Nexus Mind Predictive ML Risk Engine & CPM Simulator**:\n\n• **Model**: Trainable **RandomForestClassifier** (50 trees, depth 6) outperforming Logistic Regression baselines.\n• **Metrics**: **96.67% Accuracy**, **0.991 ROC-AUC**, **96.97% F1-Score** on 70/15/15 train-val-test split.\n• **Feature Inputs**:\n  1. Graph In-Degree (blocked prerequisites)\n  2. Assignee Capacity Overload % (e.g. Active Engineers over 100%)\n  3. Deadline Proximity (days remaining to SLA)\n  4. Prerequisite Health & Downstream Cascade\n• **CPM Simulator**: Kahn's DAG topological sort computing Early Start, Early Finish, Late Start, Late Finish, and Total Slack to detect schedule slips.\n• **Explainable AI (XAI)**: Exact feature contribution percentage breakdowns for every prediction.`
+      };
+    }
+
+    // 16. Multi-Agent Swarm
+    if (text.includes('swarm') || text.includes('multi-agent') || text.includes('safe tool') || text.includes('human in the loop') || text.includes('how do agents work')) {
+      return {
+        type: 'swarm_explanation',
+        message: `🤖 **Autonomous Multi-Agent AI Swarm Architecture**:\n\nNexus Mind employs 5 specialized AI personas:\n1. 🤖 **Project Manager Agent**: Milestone tracking, critical path analysis, and Monte Carlo sprint forecasting.\n2. 💻 **Developer Co-Pilot Agent**: Task decomposition, prerequisite mapping, and code spikes.\n3. 🛡️ **Security & Compliance Agent**: Policy auditing, anomaly detection, and MFA session hygiene.\n4. 📚 **Knowledge & RAG Agent**: Document retrieval with continuous hypersphere semantic vectors & verified citations.\n5. ⚖️ **Analytics & Workforce Agent**: Hungarian talent matching and workload capacity rebalancing.\n\n🛡️ **Safe Tool Calling**: Mutations (reassigning tasks, shifting deadlines) generate structured diff proposals requiring human approval before database commit.`
+      };
+    }
+
+    // 17. Cybersecurity & MFA
+    if (text.includes('security features') || text.includes('mfa') || text.includes('totp') || text.includes('fernet') || text.includes('backup codes') || text.includes('rbac') || text.includes('security architecture')) {
+      return {
+        type: 'security_info',
+        message: `🛡️ **Nexus Mind Cybersecurity & Enterprise IAM**:\n\n• **Multi-Factor Authentication (MFA)**: RFC 6238 TOTP with **Fernet AES-CBC encryption** of secrets at rest.\n• **Single-Use Recovery Codes**: 8 cryptographic backup codes hashed with SHA-256 and atomically invalidated on use.\n• **Role-Based Access Control (RBAC)**: Fine-grained permissions across employee, team lead, PM, and admin.\n• **Multi-Tenant Isolation**: Strict \`org_id\` scoping across all tasks, projects, documents, and audit logs.\n• **Audit Trail**: Immutable chronological ledger tracking every administrative and security event.`
+      };
+    }
+
+    // 18. Team Member Profiles
+    const personMatch = users.find(u => text.includes(u.name.toLowerCase()) || text.includes(u.name.split(' ')[0].toLowerCase()));
+    if (personMatch && (text.includes('who is') || text.includes('tell me about') || text.includes('profile') || text.includes('skills') || text.includes('about'))) {
+      const pTasks = tasks.filter(t => t.assignee === personMatch.name);
+      return {
+        type: 'user_profile',
+        message: `👤 **Team Member Profile: ${personMatch.name}**\n• **Role**: **${personMatch.role}** (\`${personMatch.app_role || 'employee'}\`)\n• **Current Load**: **${personMatch.capacity || 80}% Capacity** (${pTasks.length} assigned tasks)\n• **Skills**: ${(personMatch.skills || []).join(', ')}\n\n📋 **Assigned Tasks**:\n` + (pTasks.map(t => `• **[${t.id}] ${t.title}** (${t.status.toUpperCase()})`).join('\n') || '• No active tasks assigned.')
+      };
+    }
+
+    // 19. Policies
+    if (text.includes('policy') || text.includes('policies') || text.includes('standup policy') || text.includes('remote work') || text.includes('code review')) {
+      const pols = state.policies || [];
+      const polList = pols.map(p => `• **${p.title}** (${p.category}):\n  *${p.summary}*`).join('\n\n');
+      return {
+        type: 'policies',
+        message: `📜 **Company Operations & Engineering Policies**:\n\n${polList || 'All company standard policies (Remote Work, SLA Escalation, Vault Secrets, Code Review) are active.'}`
+      };
+    }
+
+    // 20. Meetings
+    if (text.includes('meeting') || text.includes('meetings') || text.includes('standup') || text.includes('sync')) {
+      const mtgs = state.meetings || [];
+      const mList = mtgs.map(m => `• **${m.title}** (Project: *${m.project}*)\n  📅 ${m.date} at ${m.time} (${m.duration} min) — Organizer: **${m.organizer}**\n  Agenda: *${m.agenda}*`).join('\n\n');
+      return {
+        type: 'meetings',
+        message: `📅 **Scheduled Engineering Syncs & Standups**:\n\n${mList || 'No meetings currently scheduled.'}`
+      };
+    }
+
+    // 21. General task match
     const generalTask = findMatchingTask(text);
     if (generalTask) {
       this.lastTaskId = generalTask.id;
@@ -243,10 +313,10 @@ export class AiAssistantAgent {
       };
     }
 
-    // Default conversational response (NEVER fake search_tasks)
+    // Context-Aware Dynamic Fallback
     return {
-      type: 'general_conversation',
-      message: `🤖 **Nexus Mind AI Copilot**\n\nI am connected to your live workspace database. You can ask me:\n• **Projects**: *"Which projects are currently active?"* or *"What projects are high risk?"*\n• **Organization**: *"How many employees are in the organization?"* or *"Who is overloaded?"*\n• **Tasks**: *"Who is working on Authentication?"*, *"Which tasks are completed?"*, or *"When is TASK-102 due?"*`
+      type: 'workspace_intelligence',
+      message: `💡 **Nexus Mind Copilot Telemetry Briefing**:\n\nCurrently tracking **${projects.length} projects** with **${tasks.length} total tasks**.\n\n• **Suggested Queries**:\n  - *"What is Nexus Mind?"* or *"Explain the architecture"*\n  - *"How does ML risk prediction work?"*\n  - *"Who is working on Authentication?"* or *"What is the status of any task ID?"*\n  - *"Who is assigned to this project?"* or *"Who is overloaded?"*`
     };
   }
 

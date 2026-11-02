@@ -20,6 +20,7 @@ class NexusApp {
     this.kanbanEngine = null;
     this.ganttEngine = null;
     this.rolePortals = null;
+    this.activePage = 'overview';
   }
 
   init() {
@@ -28,10 +29,7 @@ class NexusApp {
     this.kanbanEngine = new KanbanEngine('kanbanContainer');
     this.ganttEngine = new GanttEngine('ganttContainer');
 
-    this.rolePortals.render();
-    this.renderCurrentView();
-    this.graphEngine.startPhysicsLoop();
-
+    this.bindSidebarNavigation();
     this.bindThemeToggler();
     this.bindRoleSelector();
     this.bindTabNavigation();
@@ -48,9 +46,19 @@ class NexusApp {
     this.bindFooterAgentPills();
     this.bindLogoutButton();
 
+    window.addEventListener('nexus:inspect-node', () => {
+      this.navigateTo('graph');
+    });
+
+    this.navigateTo('overview');
+    this.graphEngine.startPhysicsLoop();
+
     store.subscribe(() => {
-      this.rolePortals.render();
-      this.renderCurrentView();
+      if (['graph', 'kanban', 'timeline'].includes(this.activePage)) {
+        this.renderCurrentView();
+      } else {
+        this.rolePortals.render();
+      }
       this.updateNavbarUser();
       this.updateUnreadCount();
       this.renderToasts();
@@ -85,13 +93,126 @@ class NexusApp {
   }
 
 
+  // --- Unified Navigation & View Routing ---
+  navigateTo(pageId) {
+    this.activePage = pageId;
+
+    // 1. Highlight matching sidebar nav item
+    document.querySelectorAll('.sidebar-nav-item').forEach(item => {
+      if (item.getAttribute('data-page') === pageId) {
+        item.classList.add('active');
+      } else {
+        item.classList.remove('active');
+      }
+    });
+
+    const portalContainer = document.getElementById('portalViewContainer');
+    const matrixContainer = document.getElementById('matrixViewContainer');
+
+    const matrixViews = ['graph', 'kanban', 'timeline'];
+    if (matrixViews.includes(pageId)) {
+      if (portalContainer) portalContainer.classList.add('hidden');
+      if (matrixContainer) matrixContainer.classList.remove('hidden');
+      store.setView(pageId);
+      this.renderCurrentView();
+    } else {
+      if (matrixContainer) matrixContainer.classList.add('hidden');
+      if (portalContainer) portalContainer.classList.remove('hidden');
+      this.rolePortals.setTab(pageId);
+    }
+
+    this.updateTopbarTitles(pageId);
+  }
+
+  updateTopbarTitles(pageId) {
+    const state = store.getState();
+    const pageTitle = document.getElementById('appPageTitle');
+    const pageSubtitle = document.getElementById('appPageSubtitle');
+    if (!pageTitle) return;
+
+    const activeProjectsCount = state.projects ? state.projects.length : 0;
+    const activeMembersCount = state.users ? state.users.length : 0;
+    const blockedTasksCount = state.tasks ? state.tasks.filter(t => t.status === 'blocked').length : 0;
+    const sprintStats = `Organization Workspace • ${activeProjectsCount} Active Project${activeProjectsCount === 1 ? '' : 's'} • ${activeMembersCount} Team Member${activeMembersCount === 1 ? '' : 's'} • ${blockedTasksCount} Blocked`;
+
+    const titleMap = {
+      employee: '👨‍💻 Employee Workspace Dashboard',
+      team_lead: '👩‍💼 Team Lead Management Dashboard',
+      project_manager: '📊 Project Manager Sprint Dashboard',
+      admin: '🛡️ Administrator Console Dashboard'
+    };
+
+    const pages = {
+      overview: {
+        title: titleMap[state.currentRole] || 'Workspace Dashboard',
+        sub: sprintStats
+      },
+      tasks: {
+        title: '📋 Enterprise Tasks Matrix',
+        sub: 'Unified Sprint Backlog • Dependency Status & Work Breakdown Structure'
+      },
+      graph: {
+        title: '⚡ Live Task Graph',
+        sub: 'Interactive Dependency DAG • Real-time Physics & Critical Path Overlay'
+      },
+      kanban: {
+        title: '🗂️ Agile Kanban Board',
+        sub: 'Interactive Drag & Drop Board • Backlog to Completed'
+      },
+      timeline: {
+        title: '📅 Gantt Timeline Schedule',
+        sub: 'Critical Path Schedule, Milestone Durations & Deadlines'
+      },
+      agents: {
+        title: '🤖 Autonomous Multi-Agent War Room',
+        sub: 'Swarm Telemetry • Continuous Threat Monitoring & Auto-Mitigation'
+      },
+      simulation: {
+        title: '⚡ Monte Carlo Risk Simulator',
+        sub: 'Stochastic Schedule Simulation & What-If Bottleneck Stress Testing'
+      },
+      analytics: {
+        title: '📈 Sprint Analytics & Workload Velocity',
+        sub: 'Burn-up/Burn-down Metrics • Team Load Balance & Delivery Forecast'
+      },
+      meetings: {
+        title: '🎙️ Smart Standup & Meeting Room',
+        sub: 'Live Video Conferencing • AI Audio Transcripts & Auto-Action Items'
+      },
+      knowledge: {
+        title: '📚 Workspace Knowledge Base',
+        sub: 'Architectural Specs, Engineering SOPs, Security Policies & Handbooks'
+      },
+      activity: {
+        title: '🛡️ Organization Audit Trail',
+        sub: 'Tamper-Proof Event Ledger • Autonomous Swarm Actions & User Logs'
+      }
+    };
+
+    const info = pages[pageId] || pages.overview;
+    pageTitle.textContent = info.title;
+    if (pageSubtitle) pageSubtitle.textContent = info.sub;
+  }
+
+  bindSidebarNavigation() {
+    const navItems = document.querySelectorAll('.sidebar-nav-item');
+    navItems.forEach(item => {
+      item.addEventListener('click', (e) => {
+        const page = e.currentTarget.getAttribute('data-page');
+        if (page) {
+          this.navigateTo(page);
+        }
+      });
+    });
+  }
+
   // --- Multi-View Matrix Rendering ---
   bindViewSwitcher() {
     const viewBtns = document.querySelectorAll('.view-tab-btn');
     viewBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
         const view = e.currentTarget.getAttribute('data-view');
-        store.setView(view);
+        this.navigateTo(view);
       });
     });
   }
@@ -192,6 +313,8 @@ class NexusApp {
     btn.addEventListener('click', () => {
       const newTheme = store.toggleTheme();
       this.syncThemeUI();
+      if (this.graphEngine) this.graphEngine.render();
+      if (this.rolePortals) this.rolePortals.render();
     });
   }
 
@@ -237,6 +360,7 @@ class NexusApp {
       const blockedTasksCount = state.tasks ? state.tasks.filter(t => t.status === 'blocked').length : 0;
       portalSub.textContent = `Organization Workspace • ${activeProjectsCount} Active Project${activeProjectsCount === 1 ? '' : 's'} • ${activeMembersCount} Team Member${activeMembersCount === 1 ? '' : 's'} • ${blockedTasksCount} Blocked`;
     }
+    this.updateTopbarTitles(this.activePage || 'overview');
   }
 
   updateUnreadCount() {
@@ -318,18 +442,14 @@ class NexusApp {
         if (type === 'Task') {
           const task = store.getState().tasks.find(t => t.id === id);
           if (task) {
-            store.setView('graph');
+            this.navigateTo('graph');
             this.graphEngine.showNodeDrawer(task);
           }
         } else if (type === 'Policy') {
           const policy = store.getState().policies.find(p => p.title === id);
           if (policy) this.openDocModal(policy);
         } else if (type === 'Meeting') {
-          const tabs = document.querySelectorAll('.portal-tabs .tab-btn');
-          tabs.forEach(t => t.classList.remove('active'));
-          const meetingsTabBtn = document.querySelector('.portal-tabs .tab-btn[data-tab="meetings"]');
-          if (meetingsTabBtn) meetingsTabBtn.classList.add('active');
-          this.rolePortals.setTab('meetings');
+          this.navigateTo('meetings');
         }
       }
     });
@@ -634,7 +754,7 @@ class NexusApp {
     }
 
     document.getElementById('btnViewRiskDetails')?.addEventListener('click', () => {
-      store.setView('graph');
+      this.navigateTo('graph');
       this.graphEngine.setFilter('risk');
     });
   }

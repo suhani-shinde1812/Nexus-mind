@@ -1,7 +1,7 @@
 {
-  "benchmark_timestamp": "2026-08-22T10:36:19.474170",
+  "benchmark_timestamp": "2026-10-10T09:56:44.151603",
   "total_test_queries": 5,
-  "persona_routing_accuracy": 1.0,
+  "persona_routing_accuracy": 0.8,
   "decision_trace_completeness": 1.0,
   "safe_proposal_workflow": "VERIFIED",
   "human_approval_compliance": 1.0,
@@ -12,7 +12,7 @@
       "expected_agent": "Knowledge & RAG Agent",
       "actual_agent": "Knowledge & RAG Agent",
       "agent_matched": true,
-      "intent": "knowledge_retrieval",
+      "intent": "KNOWLEDGE_SEARCH",
       "tools_executed": [
         "rag_search"
       ]
@@ -22,7 +22,7 @@
       "expected_agent": "Project Manager Agent",
       "actual_agent": "Project Manager Agent",
       "agent_matched": true,
-      "intent": "discrete_simulation",
+      "intent": "SIMULATION",
       "tools_executed": [
         "simulate_schedule",
         "list_bottlenecks"
@@ -33,7 +33,7 @@
       "expected_agent": "Security & Compliance Agent",
       "actual_agent": "Security & Compliance Agent",
       "agent_matched": true,
-      "intent": "security_audit",
+      "intent": "SECURITY_QUERY",
       "tools_executed": [
         "audit_policy"
       ]
@@ -43,20 +43,18 @@
       "expected_agent": "Analytics & Workforce Agent",
       "actual_agent": "Analytics & Workforce Agent",
       "agent_matched": true,
-      "intent": "workload_rebalance",
+      "intent": "TEAM_WORKLOAD",
       "tools_executed": [
-        "rebalance_workload"
+        "get_team_capacity"
       ]
     },
     {
       "query": "Decompose GraphQL schema migration into subtasks",
       "expected_agent": "Developer Co-Pilot Agent",
-      "actual_agent": "Developer Co-Pilot Agent",
-      "agent_matched": true,
-      "intent": "task_decomposition",
-      "tools_executed": [
-        "decompose_task"
-      ]
+      "actual_agent": "Project Manager Agent",
+      "agent_matched": false,
+      "intent": "WORKSPACE_INTELLIGENCE",
+      "tools_executed": []
     }
   ]
 }
