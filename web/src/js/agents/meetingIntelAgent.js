@@ -124,8 +124,8 @@ export class MeetingIntelAgent {
 
     const DEMO_LINES = [
       { delay: 500, text: 'Alright everyone, let\'s kick off the sprint planning meeting.' },
-      { delay: 2000, text: 'Sarah will complete the OAuth2 integration by end of this week.' },
-      { delay: 3500, text: 'Action item: Devon needs to fix the WebSocket reconnect bug before Thursday.' },
+      { delay: 2000, text: 'Aditi will complete the OAuth2 integration by end of this week.' },
+      { delay: 3500, text: 'Action item: Suhani needs to fix the WebSocket reconnect bug before Thursday.' },
       { delay: 5000, text: 'We need to review the API rate limiting policy with the security team.' },
       { delay: 6500, text: 'Alex is responsible for updating the Docker compose configuration.' },
       { delay: 8000, text: 'Follow-up: schedule a performance test for the graph engine with Marcus.' },

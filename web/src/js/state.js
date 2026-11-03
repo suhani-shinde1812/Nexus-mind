@@ -22,21 +22,21 @@ const SEEDED_POLICIES = [
 ];
 
 const SEEDED_ALERTS = [
-  { id: 'alt-1', severity: 'critical', title: 'Critical Path Hazard: Devon Reed', message: 'Devon Reed is assigned 5 concurrent tasks (110% capacity load). TASK-102 is blocking 3 downstream milestones.', taskId: 'TASK-102', read: false, timestamp: '10 mins ago' },
-  { id: 'alt-2', severity: 'warning', title: 'Dependency SLA Delay', message: 'TASK-104 (React Dashboard UI) is currently BLOCKED by delayed OAuth2 API Gateway.', taskId: 'TASK-104', read: false, timestamp: '25 mins ago' },
-  { id: 'alt-3', severity: 'info', title: 'AI Workload Rebalance Recommendation', message: 'Reassigning TASK-106 to Priya Sharma will reduce Devon Reed capacity load to 75% and unblock Sprint Alpha.', taskId: 'TASK-106', read: false, timestamp: '1 hour ago' },
+  { id: 'alt-1', severity: 'critical', title: 'Critical Path Hazard: suhani shinde', message: 'suhani shinde is assigned 5 concurrent tasks (110% capacity load). TASK-109 is blocking 3 downstream milestones.', taskId: 'TASK-109', read: false, timestamp: '10 mins ago' },
+  { id: 'alt-2', severity: 'warning', title: 'Dependency SLA Delay', message: 'TASK-113 (React Dashboard UI) is currently BLOCKED by delayed OAuth2 API Gateway.', taskId: 'TASK-113', read: false, timestamp: '25 mins ago' },
+  { id: 'alt-3', severity: 'info', title: 'AI Workload Rebalance Recommendation', message: 'Reassigning TASK-110 to Aditi Lead will reduce suhani shinde capacity load to 75% and unblock Sprint Alpha.', taskId: 'TASK-110', read: false, timestamp: '1 hour ago' },
 ];
 
 const SEEDED_MEETINGS = [
-  { id: 'MTG-1001', title: 'Sprint Alpha Standup & Blocker Review', project: 'Sprint Alpha - Cloud Migration', date: '2026-08-23', time: '10:00', duration: '30', attendees: ['Sarah Jenkins', 'Devon Reed', 'Priya Sharma'], agenda: 'Review TASK-102 database migration risk and unblock downstream tasks.', organizer: 'Sarah Jenkins', status: 'scheduled', link: 'https://meet.jit.si/NexusMind-SprintAlpha' },
-  { id: 'MTG-1002', title: 'Security & Compliance Sync', project: 'Security & Compliance', date: '2026-08-24', time: '15:30', duration: '45', attendees: ['Alex Vance', 'Elena Rostova'], agenda: 'Walkthrough OAuth2 gateway rollout and secret storage policy compliance.', organizer: 'Elena Rostova', status: 'scheduled', link: 'https://meet.jit.si/NexusMind-SecuritySync' },
+  { id: 'MTG-1001', title: 'Sprint Alpha Standup & Blocker Review', project: 'Sprint Alpha - Cloud Migration', date: '2026-08-23', time: '10:00', duration: '30', attendees: ['Aditi Lead', 'suhani shinde', 'Aditi Lead'], agenda: 'Review TASK-109 database migration risk and unblock downstream tasks.', organizer: 'Aditi Lead', status: 'scheduled', link: 'https://meet.jit.si/NexusMind-SprintAlpha' },
+  { id: 'MTG-1002', title: 'Security & Compliance Sync', project: 'Security & Compliance', date: '2026-08-24', time: '15:30', duration: '45', attendees: ['suhani shinde', 'Aditi Gavasane'], agenda: 'Walkthrough OAuth2 gateway rollout and secret storage policy compliance.', organizer: 'Aditi Gavasane', status: 'scheduled', link: 'https://meet.jit.si/NexusMind-SecuritySync' },
 ];
 
 const SEEDED_ACTIVITY_LOGS = [
-  { id: 'act-1', taskId: 'TASK-102', eventType: 'risk_escalated', fromValue: '0.4', toValue: '0.85', actor: 'AI Monitoring Agent', timestamp: '15 mins ago' },
-  { id: 'act-2', taskId: 'TASK-101', eventType: 'status_change', fromValue: 'in_progress', toValue: 'done', actor: 'Devon Reed', timestamp: '2 hours ago' },
-  { id: 'act-3', taskId: 'TASK-103', eventType: 'dependency_linked', fromValue: null, toValue: 'TASK-102', actor: 'Sarah Jenkins', timestamp: '4 hours ago' },
-  { id: 'act-4', taskId: 'TASK-106', eventType: 'status_change', fromValue: 'in_progress', toValue: 'blocked', actor: 'Devon Reed', timestamp: '6 hours ago' }
+  { id: 'act-1', taskId: 'TASK-109', eventType: 'risk_escalated', fromValue: '0.4', toValue: '0.85', actor: 'AI Monitoring Agent', timestamp: '15 mins ago' },
+  { id: 'act-2', taskId: 'TASK-101', eventType: 'status_change', fromValue: 'in_progress', toValue: 'done', actor: 'suhani shinde', timestamp: '2 hours ago' },
+  { id: 'act-3', taskId: 'TASK-103', eventType: 'dependency_linked', fromValue: null, toValue: 'TASK-109', actor: 'Aditi Lead', timestamp: '4 hours ago' },
+  { id: 'act-4', taskId: 'TASK-110', eventType: 'status_change', fromValue: 'in_progress', toValue: 'blocked', actor: 'suhani shinde', timestamp: '6 hours ago' }
 ];
 
 class StateStore {
@@ -121,10 +121,10 @@ class StateStore {
 
   loginDemo(roleName = 'team_lead') {
     const userMap = {
-      employee: this.state.users[0], // Alex Vance
-      team_lead: this.state.users[1], // Sarah Jenkins
-      project_manager: this.state.users[4], // Marcus Chen
-      admin: this.state.users[5], // Elena Rostova
+      employee: this.state.users[0], // suhani shinde
+      team_lead: this.state.users[1], // Aditi Lead
+      project_manager: this.state.users[4], // pranjal shinde
+      admin: this.state.users[5], // Aditi Gavasane
     };
     const user = userMap[roleName] || this.state.users[1];
     this.state.currentUser = user;
@@ -417,7 +417,7 @@ class StateStore {
   }
 
   async addTask(taskData) {
-    const defaultAssignee = this.state.currentUser ? this.state.currentUser.name : (this.state.users[0]?.name || 'Sarah Jenkins');
+    const defaultAssignee = this.state.currentUser ? this.state.currentUser.name : (this.state.users[0]?.name || 'Aditi Lead');
     const defaultProject = this.state.projects[0] ? this.state.projects[0].name : 'Sprint Alpha - Cloud Migration';
 
     // Spread node positions in a clean, non-overlapping grid layout
@@ -856,7 +856,7 @@ ${state.users.map(u => `- **${u.name}** (${u.role}): **${u.capacity}% Workload L
       // Local Heuristic Fallback
       let ans = `🤖 Evaluated query "${queryText}".\nAll core project graph milestones are within SLA tolerance window.`;
       if (queryText.toLowerCase().includes('what if') || queryText.toLowerCase().includes('alex')) {
-        ans = `📈 **What-If Discrete Simulation**:\n• Baseline: 14.4 days ➔ Simulated: 23.2 days (Δ +8.8 days)\n• On-time delivery probability: 5.0%\n• Identified Bottlenecks: Alex Vance absence blocks TASK-103 & TASK-104.`;
+        ans = `📈 **What-If Discrete Simulation**:\n• Baseline: 14.4 days ➔ Simulated: 23.2 days (Δ +8.8 days)\n• On-time delivery probability: 5.0%\n• Identified Bottlenecks: suhani shinde absence blocks TASK-103 & TASK-113.`;
       }
       this.state.copilotMessages.push({
         sender: 'ai',
