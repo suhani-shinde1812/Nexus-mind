@@ -264,6 +264,19 @@ def _is_unambiguous_match(query: str, matches: list[dict[str, Any]]) -> bool:
     top = matches[0]["title"].lower().strip()
     if q == top or q in top or top in q:
         return True
+
+    generic_words = {"management", "service", "system", "app", "item", "task", "work", "feature", "the", "and", "a"}
+    q_words = set(re.findall(r"\w+", q)) - generic_words
+    top_words = set(re.findall(r"\w+", top)) - generic_words
+    shared = q_words.intersection(top_words)
+
+    if shared and len(matches) > 1:
+        second = matches[1]["title"].lower().strip()
+        second_words = set(re.findall(r"\w+", second)) - generic_words
+        second_shared = q_words.intersection(second_words)
+        if len(shared) > len(second_shared):
+            return True
+
     return False
 
 
@@ -328,6 +341,8 @@ def search_tasks(
     tasks = filtered.order_by(models.Task.id.desc()).limit(100).all()
 
     # Score / Sort matches: exact title match > full phrase match > keyword match > tenant preference
+    generic_words = {"management", "service", "system", "app", "item", "task", "work", "feature", "the", "and", "a"}
+
     def score_task(t: models.Task) -> int:
         score = 0
         t_lower = t.title.lower()
@@ -335,12 +350,16 @@ def search_tasks(
         if t_lower == q_lower:
             score += 100
         elif q_lower in t_lower:
-            score += 50
+            score += 60
         elif t_lower in q_lower:
-            score += 30
+            score += 40
         for w in words:
-            if w.lower() in t_lower:
-                score += 5
+            w_lower = w.lower()
+            if w_lower in t_lower:
+                if w_lower not in generic_words:
+                    score += 35
+                else:
+                    score += 5
         if current_user.org_id and t.org_id == current_user.org_id:
             score += 20
         return score

@@ -186,7 +186,8 @@ class AgentOrchestrator:
         if cleaned.lower() in [
             "", "it", "this", "that", "the", "a", "all", "tasks", "blocked", "high risk", "overloaded",
             "completed", "finished", "done", "active", "in progress", "projects", "employees", "members",
-            "completed tasks", "active projects",
+            "completed tasks", "active projects", "what", "who", "which", "how", "everything", "something",
+            "anything", "what to do", "going on", "going", "work", "tasks ongoing",
         ]:
             if user_id and user_id in self._session_contexts:
                 return self._session_contexts[user_id].get("task_id")
@@ -196,7 +197,9 @@ class AgentOrchestrator:
         if any(w in cleaned.lower() for w in [
             "how many", "which projects", "what projects", "who are", "list all", "show all",
             "which are", "what are", "show me", "which tasks", "what tasks", "completed tasks",
-            "working tasks", "finished tasks",
+            "working tasks", "finished tasks", "what is going on", "going on", "what is happening",
+            "who is working on what", "who is assigned to what", "assigned to what", "summary of",
+            "what is the project", "what project", "who is doing what", "status of project",
         ]):
             return None
 
@@ -234,6 +237,183 @@ class AgentOrchestrator:
             "proposal": None,
         }
 
+        # ==================================================================
+        # INTENT 0A: Team Work Allocations ("Who is working on what?")
+        # ==================================================================
+        if any(w in q_lower for w in [
+            "who is working on what", "who is assigned to what", "what is everyone working on",
+            "who is doing what", "show all assignments", "team assignments", "task allocations",
+            "who has what", "who works on what", "who is working what", "what is the team working on",
+            "who has what tasks", "list all assignments", "current assignments", "show assignments"
+        ]):
+            trace["intent"] = "TEAM_ALLOCATIONS"
+            trace["selected_agent"] = self.agents["pm"]["name"]
+            trace["tools_executed"].append("get_team_allocations")
+
+            users = agent_tools._get_org_users_query(db, user).all()
+            all_tasks = agent_tools._get_org_tasks_query(db, user).all()
+
+            lines = ["👥 **Current Team Work Allocations & Ongoing Tasks**:"]
+            for u in users:
+                u_tasks = [t for t in all_tasks if t.assignee_id == u.id and t.status != "done"]
+                completed_count = len([t for t in all_tasks if t.assignee_id == u.id and t.status == "done"])
+                lines.append(f"\n• **{u.name}** ({u.role or 'Engineer'}):")
+                if not u_tasks:
+                    lines.append(f"  *(No active ongoing tasks — {completed_count} completed)*")
+                else:
+                    for t in u_tasks:
+                        status_badge = "🔴 BLOCKED" if t.status == "blocked" else f"⏳ {t.status.upper().replace('_', ' ')}"
+                        lines.append(f"  - **[{t.id}] {t.title}** ({status_badge}, Priority: **{t.priority}**, Due: {t.due_date or 'No SLA'})")
+
+            unassigned = [t for t in all_tasks if not t.assignee_id and t.status != "done"]
+            if unassigned:
+                lines.append("\n⚠️ **Unassigned Ongoing Tasks**:")
+                for t in unassigned:
+                    lines.append(f"  - **[{t.id}] {t.title}** (Priority: {t.priority})")
+
+            return {
+                "agent": self.agents["pm"]["name"],
+                "type": "team_allocations",
+                "answer": "\n".join(lines),
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # ==================================================================
+        # INTENT 0B: Real-time Project & Sprint Status Summary ("What is going on?")
+        # ==================================================================
+        if any(w in q_lower for w in [
+            "what is going on in this project", "what is going on in the project", "what is going on",
+            "what's going on", "what is happening", "how is the project going", "sprint status",
+            "project status", "status of the project", "summarize project", "summarize the project",
+            "summary of project", "summary of the project", "project summary", "project updates",
+            "what are we working on", "current sprint progress", "sprint progress", "sprint overview",
+            "tell me about this project", "project progress", "what is the project going on",
+            "what project is going on", "explain the project status", "overall status"
+        ]):
+            trace["intent"] = "PROJECT_STATUS_SUMMARY"
+            trace["selected_agent"] = self.agents["pm"]["name"]
+            trace["tools_executed"].extend(["get_projects", "get_tasks"])
+
+            projects = agent_tools.get_projects(db, user, status="active")
+            all_tasks = agent_tools._get_org_tasks_query(db, user).all()
+            total_tasks = len(all_tasks)
+            in_prog = [t for t in all_tasks if t.status == "in_progress"]
+            blocked = [t for t in all_tasks if t.status == "blocked"]
+            done = [t for t in all_tasks if t.status == "done"]
+            users = agent_tools._get_org_users_query(db, user).all()
+
+            progress_pct = int((len(done) / total_tasks * 100)) if total_tasks > 0 else 0
+
+            lines = [
+                f"🚀 **Nexus Mind Sprint & Project Intelligence Summary**:\n",
+                f"• **Sprint Progress**: **{progress_pct}% Completed** ({len(done)}/{total_tasks} Tasks Done)",
+                f"• **Active Tasks**: **{len(in_prog)}** In Progress • **{len(blocked)}** Blocked",
+                f"• **Active Projects ({len(projects)})**: " + ", ".join([f"*{p['name']}*" for p in projects]),
+                f"• **Active Team**: **{len(users)} engineers & leads** actively contributing.",
+            ]
+
+            if blocked:
+                lines.append(f"\n⚠️ **Immediate Critical Bottlenecks ({len(blocked)})**:")
+                for b in blocked:
+                    assignee_user = db.get(models.User, b.assignee_id) if b.assignee_id else None
+                    assignee_name = assignee_user.name if assignee_user else "Unassigned"
+                    lines.append(f"• **[{b.id}] {b.title}** (Owner: **{assignee_name}**, Priority: **{b.priority}**)")
+
+            if in_prog:
+                lines.append(f"\n⏳ **Key In-Progress Deliverables**:")
+                for t in in_prog[:5]:
+                    assignee_user = db.get(models.User, t.assignee_id) if t.assignee_id else None
+                    assignee_name = assignee_user.name if assignee_user else "Unassigned"
+                    lines.append(f"• **[{t.id}] {t.title}** ➔ **{assignee_name}** (Due: {t.due_date or 'No SLA'})")
+
+            return {
+                "agent": self.agents["pm"]["name"],
+                "type": "project_status_summary",
+                "answer": "\n".join(lines),
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # ==================================================================
+        # INTENT 0C: All Ongoing Tasks ("What tasks are ongoing?")
+        # ==================================================================
+        if any(w in q_lower for w in [
+            "what tasks are ongoing", "tasks are ongoing", "ongoing tasks", "tasks ongoing",
+            "what tasks do we have", "what are the tasks", "list tasks", "show tasks", "all tasks",
+            "tasks in this project", "current tasks", "tasks currently working", "show all ongoing tasks",
+            "what tasks are in progress", "what are the active tasks", "active tasks", "in progress tasks"
+        ]):
+            trace["intent"] = "ONGOING_TASKS"
+            trace["selected_agent"] = self.agents["dev"]["name"]
+            trace["tools_executed"].append("get_ongoing_tasks")
+
+            all_tasks = agent_tools._get_org_tasks_query(db, user).order_by(models.Task.id.asc()).all()
+            ongoing = [t for t in all_tasks if t.status != "done"]
+
+            if not ongoing:
+                answer = "✓ All tasks are currently completed! There are no pending or blocked tasks."
+            else:
+                lines = [f"📋 **All Ongoing Sprint Tasks ({len(ongoing)})**:"]
+                for t in ongoing:
+                    assignee_user = db.get(models.User, t.assignee_id) if t.assignee_id else None
+                    assignee_name = assignee_user.name if assignee_user else "Unassigned"
+                    status_badge = "🔴 BLOCKED" if t.status == "blocked" else "⏳ IN PROGRESS"
+                    lines.append(f"• **[{t.id}] {t.title}** — {status_badge} • Owner: **{assignee_name}** • Priority: **{t.priority}** (Due: {t.due_date or 'No SLA'})")
+                answer = "\n".join(lines)
+
+            return {
+                "agent": self.agents["dev"]["name"],
+                "type": "ongoing_tasks",
+                "answer": answer,
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
+        # ==================================================================
+        # INTENT 0D: Task Count & Breakdown ("How many tasks are there?")
+        # ==================================================================
+        if any(w in q_lower for w in [
+            "how many tasks", "task count", "total tasks", "number of tasks", "how many tickets", "count tasks"
+        ]):
+            trace["intent"] = "TASK_COUNT"
+            trace["selected_agent"] = self.agents["pm"]["name"]
+            trace["tools_executed"].append("count_tasks")
+
+            all_tasks = agent_tools._get_org_tasks_query(db, user).all()
+            total = len(all_tasks)
+            in_prog = len([t for t in all_tasks if t.status == "in_progress"])
+            blocked = len([t for t in all_tasks if t.status == "blocked"])
+            done = len([t for t in all_tasks if t.status == "done"])
+
+            critical = len([t for t in all_tasks if t.priority == "Critical"])
+            high = len([t for t in all_tasks if t.priority == "High"])
+            medium = len([t for t in all_tasks if t.priority == "Medium"])
+
+            answer = (
+                f"📊 **Workspace Task Inventory ({total} Total Tasks)**:\n\n"
+                f"• **Status Breakdown**:\n"
+                f"  - ⏳ In Progress: **{in_prog}**\n"
+                f"  - 🔴 Blocked: **{blocked}**\n"
+                f"  - ✅ Completed: **{done}**\n\n"
+                f"• **Priority Distribution**:\n"
+                f"  - 🔥 Critical: **{critical}**\n"
+                f"  - ⚠️ High: **{high}**\n"
+                f"  - ⚡ Medium/Low: **{medium}**"
+            )
+
+            return {
+                "agent": self.agents["pm"]["name"],
+                "type": "task_count",
+                "answer": answer,
+                "citations": [],
+                "proposed_action": None,
+                "decision_trace": trace,
+            }
+
         # ------------------------------------------------------------------
         # INTENT 1: Knowledge & Documentation (RAG)
         # ------------------------------------------------------------------
@@ -263,14 +443,17 @@ class AgentOrchestrator:
             trace["tools_executed"].extend(["simulate_schedule", "list_bottlenecks"])
 
             unavailable = []
-            if "alex" in q_lower:
-                unavailable.append("Alex Vance")
-            if "devon" in q_lower:
-                unavailable.append("Devon Reed")
-            if "sarah" in q_lower:
-                unavailable.append("Sarah Jenkins")
-            if "priya" in q_lower:
-                unavailable.append("Priya Sharma")
+            # Check for any team member mentioned in query
+            org_users = agent_tools._get_org_users_query(db, user).all()
+            for u in org_users:
+                first = u.name.split()[0].lower()
+                if first in q_lower or u.name.lower() in q_lower:
+                    unavailable.append(u.name)
+            if not unavailable:
+                # Default to first non-lead engineer if none specified
+                eng = next((u for u in org_users if u.role != "Team Lead"), org_users[0] if org_users else None)
+                if eng:
+                    unavailable.append(eng.name)
 
             from app.schemas import SimulationIn
 
@@ -284,11 +467,17 @@ class AgentOrchestrator:
 
             proposal = None
             if unavailable:
+                # Find an ongoing task of the unavailable engineer or first ongoing task
+                sample_task = db.query(models.Task).filter(models.Task.status != "done").first()
+                target_tid = sample_task.id if sample_task else "TASK-109"
+                other_user = next((u for u in org_users if u.name not in unavailable), org_users[0] if org_users else None)
+                other_name = other_user.name if other_user else "Teammate"
+
                 proposal = proposal_store.create_proposal(
                     action_type="reassign_task",
-                    target_id="TASK-102",
-                    current_state={"task_id": "TASK-102", "assignee": unavailable[0], "status": "in_progress"},
-                    proposed_state={"task_id": "TASK-102", "assignee": "Priya Sharma", "status": "in_progress"},
+                    target_id=target_tid,
+                    current_state={"task_id": target_tid, "assignee": unavailable[0], "status": "in_progress"},
+                    proposed_state={"task_id": target_tid, "assignee": other_name, "status": "in_progress"},
                     reason=f"Cover {unavailable[0]} absence to preserve critical path milestone velocity.",
                     actor_agent=self.agents["pm"]["name"],
                 )

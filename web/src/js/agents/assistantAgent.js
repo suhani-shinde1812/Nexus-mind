@@ -68,8 +68,105 @@ export class AiAssistantAgent {
       const clean = query.replace(/who is working on|who is assigned to|who is handling|what is the status of|when is|what is the deadline for|is|what is blocking|which tasks depend on|tell me about|check|find|the|task|feature/gi, '').trim();
       if (!clean) return null;
 
-      return tasks.find(t => t.title.toLowerCase().includes(clean) || (t.description && t.description.toLowerCase().includes(clean))) || null;
+      const stopWords = ['what', 'who', 'how', 'when', 'where', 'why', 'it', 'this', 'that', 'all', 'everything', 'going on', 'work', 'tasks'];
+      if (stopWords.includes(clean.toLowerCase())) return null;
+
+      // Prioritize exact or distinctive keyword match
+      const cleanLower = clean.toLowerCase();
+      const exactMatch = tasks.find(t => t.title.toLowerCase() === cleanLower);
+      if (exactMatch) return exactMatch;
+
+      return tasks.find(t => t.title.toLowerCase().includes(cleanLower) || (t.description && t.description.toLowerCase().includes(cleanLower))) || null;
     };
+
+    // 0A. Team Allocations ("Who is working on what?")
+    if (text.includes('who is working on what') || text.includes('who is assigned to what') || text.includes('what is everyone working on') || text.includes('who is doing what') || text.includes('show assignments') || text.includes('team assignments') || text.includes('task allocations') || text.includes('what is the team working on')) {
+      const lines = ['👥 **Current Team Work Breakdown & Ongoing Tasks**:'];
+      users.forEach(u => {
+        const uTasks = tasks.filter(t => t.assignee === u.name && t.status !== 'done');
+        lines.push(`\n• **${u.name}** (${u.role || 'Member'}):`);
+        if (uTasks.length === 0) {
+          lines.push(`  *(No active tasks)*`);
+        } else {
+          uTasks.forEach(t => {
+            const badge = t.status === 'blocked' ? '🔴 BLOCKED' : `⏳ ${t.status.toUpperCase()}`;
+            lines.push(`  - **[${t.id}] ${t.title}** (${badge}, Priority: **${t.priority}**, Due: ${t.dueDate || 'No SLA'})`);
+          });
+        }
+      });
+      return {
+        type: 'team_allocations',
+        message: lines.join('\n')
+      };
+    }
+
+    // 0B. Project Status Summary ("What is going on?")
+    if (text.includes('what is going on') || text.includes("what's going on") || text.includes('what is happening') || text.includes('project status') || text.includes('sprint status') || text.includes('summarize project') || text.includes('summary of project') || text.includes('project summary') || text.includes('what are we working on') || text.includes('project progress') || text.includes('what is the project going on')) {
+      const inProg = tasks.filter(t => t.status === 'in_progress' || t.status === 'active');
+      const blocked = tasks.filter(t => t.status === 'blocked');
+      const done = tasks.filter(t => t.status === 'done');
+      const progressPct = tasks.length > 0 ? Math.round((done.length / tasks.length) * 100) : 0;
+
+      const lines = [
+        `🚀 **Nexus Mind Sprint & Project Intelligence Summary**:\n`,
+        `• **Sprint Progress**: **${progressPct}% Completed** (${done.length}/${tasks.length} Tasks Done)`,
+        `• **Active Tasks**: **${inProg.length}** In Progress • **${blocked.length}** Blocked`,
+        `• **Active Projects (${projects.length})**: ` + projects.map(p => `*${p.name}*`).join(', '),
+        `• **Active Team**: **${users.length} engineers & leads** actively contributing.`
+      ];
+
+      if (blocked.length > 0) {
+        lines.push(`\n⚠️ **Immediate Critical Bottlenecks (${blocked.length})**:`);
+        blocked.forEach(b => {
+          lines.push(`• **[${b.id}] ${b.title}** (Owner: **${b.assignee}**, Priority: **${b.priority}**)`);
+        });
+      }
+
+      if (inProg.length > 0) {
+        lines.push(`\n⏳ **Key In-Progress Deliverables**:`);
+        inProg.slice(0, 5).forEach(t => {
+          lines.push(`• **[${t.id}] ${t.title}** ➔ **${t.assignee || 'Unassigned'}** (Due: ${t.dueDate || 'No SLA'})`);
+        });
+      }
+
+      return {
+        type: 'project_status_summary',
+        message: lines.join('\n')
+      };
+    }
+
+    // 0C. All Ongoing Tasks
+    if (text.includes('what tasks are ongoing') || text.includes('tasks are ongoing') || text.includes('ongoing tasks') || text.includes('tasks ongoing') || text.includes('what tasks do we have') || text.includes('show all ongoing tasks')) {
+      const ongoing = tasks.filter(t => t.status !== 'done');
+      if (ongoing.length === 0) {
+        return {
+          type: 'ongoing_tasks',
+          message: '✓ All tasks are currently completed! There are no pending or blocked tasks.'
+        };
+      }
+      const lines = [`📋 **All Ongoing Sprint Tasks (${ongoing.length})**:`];
+      ongoing.forEach(t => {
+        const badge = t.status === 'blocked' ? '🔴 BLOCKED' : '⏳ IN PROGRESS';
+        lines.push(`• **[${t.id}] ${t.title}** — ${badge} • Owner: **${t.assignee || 'Unassigned'}** • Priority: **${t.priority}** (Due: ${t.dueDate || 'No SLA'})`);
+      });
+      return {
+        type: 'ongoing_tasks',
+        message: lines.join('\n')
+      };
+    }
+
+    // 0D. Task Count
+    if (text.includes('how many tasks') || text.includes('task count') || text.includes('total tasks') || text.includes('number of tasks') || text.includes('count tasks')) {
+      const inProg = tasks.filter(t => t.status === 'in_progress').length;
+      const blocked = tasks.filter(t => t.status === 'blocked').length;
+      const done = tasks.filter(t => t.status === 'done').length;
+      const crit = tasks.filter(t => t.priority === 'Critical').length;
+      const high = tasks.filter(t => t.priority === 'High').length;
+      return {
+        type: 'task_count',
+        message: `📊 **Workspace Task Inventory (${tasks.length} Total Tasks)**:\n\n• **Status Breakdown**:\n  - ⏳ In Progress: **${inProg}**\n  - 🔴 Blocked: **${blocked}**\n  - ✅ Completed: **${done}**\n\n• **Priority Distribution**:\n  - 🔥 Critical: **${crit}**\n  - ⚠️ High: **${high}**\n  - ⚡ Medium/Low: **${tasks.length - crit - high}**`
+      };
+    }
 
     // 1. Organization Employee Headcount Query
     if (text.includes('how many employees') || text.includes('how many people') || text.includes('number of team members') || text.includes('how big is our organization') || text.includes('how many members') || text.includes('employee count') || text.includes('headcount')) {
