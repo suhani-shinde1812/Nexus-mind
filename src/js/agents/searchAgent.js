@@ -75,6 +75,25 @@ export class AiSearchAgent {
       }
     });
 
+    // 4. Search Meetings
+    (state.meetings || []).forEach(m => {
+      if (
+        m.status === 'scheduled' &&
+        (m.title.toLowerCase().includes(q) ||
+        m.project.toLowerCase().includes(q) ||
+        m.attendees.some(a => a.toLowerCase().includes(q)))
+      ) {
+        results.push({
+          type: 'Meeting',
+          id: m.id,
+          title: `📅 ${m.title}`,
+          subtitle: `${m.date} • ${m.time} • Team: ${m.project}`,
+          badge: 'Meeting',
+          data: m
+        });
+      }
+    });
+
     return results;
   }
 }

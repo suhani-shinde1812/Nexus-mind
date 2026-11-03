@@ -1,9 +1,8 @@
 /**
  * AI MONITORING AGENT
- * Architecture Role: Track Progress, Detect Risks, High-Risk Halos, Send Proactive Alerts
- * Single Source of Truth analysis over Live Task Graph.
+ * Single Source of Truth analysis over Live Task Graph:
+ * Progress tracking, bottleneck detection, Monte Carlo sprint forecast trigger, and proactive alerting.
  */
-
 import { store } from '../state.js';
 
 export class AiMonitoringAgent {
@@ -31,14 +30,21 @@ export class AiMonitoringAgent {
 
     // 2. Evaluate risk score for each task
     tasks.forEach(task => {
-      let riskScore = 0.1;
+      if (task.status === 'done') {
+        task.aiRiskScore = 0.05;
+        task.riskReason = null;
+        return;
+      }
+
+      let riskScore = 0.15;
       let reasons = [];
 
       // Reason A: Overloaded Assignee
       const activeCount = userTaskCount[task.assignee] || 0;
-      if (activeCount >= 4) {
+      const assigneeUser = users.find(u => u.name === task.assignee);
+      if (activeCount >= 4 || (assigneeUser && assigneeUser.capacity > 95)) {
         riskScore += 0.45;
-        reasons.push(`Assignee ${task.assignee} has ${activeCount} active tasks (Workload overload hazard).`);
+        reasons.push(`Assignee ${task.assignee} has ${activeCount} active tasks (${assigneeUser ? assigneeUser.capacity : 100}% workload).`);
       }
 
       // Reason B: Prerequisite Risk Propagation
@@ -48,10 +54,10 @@ export class AiMonitoringAgent {
           if (depTask) {
             if (depTask.status === 'blocked') {
               riskScore += 0.5;
-              reasons.push(`Prerequisite ${depId} is currently BLOCKED.`);
+              reasons.push(`Prerequisite [${depId}] is currently BLOCKED.`);
             } else if (depTask.aiRiskScore > 0.6) {
               riskScore += 0.35;
-              reasons.push(`Prerequisite ${depId} has elevated risk (${Math.round(depTask.aiRiskScore * 100)}%).`);
+              reasons.push(`Prerequisite [${depId}] has elevated risk (${Math.round(depTask.aiRiskScore * 100)}%).`);
             }
           }
         });
@@ -63,7 +69,18 @@ export class AiMonitoringAgent {
         reasons.push('CRITICAL priority task is in BLOCKED state!');
       }
 
-      // Cap at 0.99
+      // Reason D: Deadline proximity
+      if (task.dueDate) {
+        const daysLeft = Math.ceil((new Date(task.dueDate) - new Date()) / (1000 * 60 * 60 * 24));
+        if (daysLeft < 0) {
+          riskScore += 0.3;
+          reasons.push('Task is PAST target SLA due date!');
+        } else if (daysLeft <= 2) {
+          riskScore += 0.2;
+          reasons.push(`Approaching target SLA deadline (${daysLeft} day left).`);
+        }
+      }
+
       task.aiRiskScore = Math.min(0.99, Number(riskScore.toFixed(2)));
       task.riskReason = reasons.length > 0 ? reasons.join(' ') : null;
 
@@ -72,15 +89,16 @@ export class AiMonitoringAgent {
       }
     });
 
-    // Update state store
+    // Run Monte Carlo Forecast Simulation
+    store.runMonteCarloForecast();
+    store.logSwarmActivity(this.name, 'Graph Anomaly Scan', `Scanned ${tasks.length} live nodes. Identified ${newRisksFound} risk bottlenecks. Health: ${Math.max(20, Math.round(100 - (newRisksFound * 18)))}%.`);
     store.saveState();
 
-    // Return detailed diagnostic report
     return {
       totalTasksAnalyzed: tasks.length,
       highRiskCount: newRisksFound,
       systemHealthIndex: Math.max(20, Math.round(100 - (newRisksFound * 18))),
-      summary: `${this.name} scanned ${tasks.length} live graph nodes. Detected ${newRisksFound} critical risk bottlenecks.`
+      summary: `${this.name} scanned ${tasks.length} live graph nodes. Detected ${newRisksFound} critical risk bottlenecks across active projects.`
     };
   }
 
@@ -91,15 +109,15 @@ export class AiMonitoringAgent {
     const analysis = this.analyzeGraphRisks();
     const state = store.getState();
 
-    const highRiskTasks = state.tasks.filter(t => t.aiRiskScore >= 0.7);
+    const highRiskTasks = state.tasks.filter(t => t.aiRiskScore >= 0.7 && t.status !== 'done');
 
     highRiskTasks.forEach(task => {
       const existingAlert = state.aiAlerts.find(a => a.taskId === task.id);
       if (!existingAlert) {
         store.addAlert({
           severity: task.aiRiskScore > 0.85 ? 'critical' : 'warning',
-          title: `AI Risk Alert: ${task.id}`,
-          message: task.riskReason || `Elevated risk detected on ${task.title}`,
+          title: `⚠️ AI SLA Alert: ${task.id}`,
+          message: `${task.title} has elevated risk (${Math.round(task.aiRiskScore * 100)}%). ${task.riskReason || 'Requires team lead intervention.'}`,
           taskId: task.id
         });
       }

@@ -1,31 +1,39 @@
 /**
  * NEXUS MIND - APPLICATION BOOTSTRAP & MAIN ORCHESTRATOR
+ * Orchestrates Multi-View Matrix (Graph, Kanban, Gantt), Autonomous AI Swarm,
+ * Role Portals, and Real-Time Collaboration.
  */
-
 import { store } from './state.js';
+import { api } from './api.js';
 import { LiveTaskGraphEngine } from './graphEngine.js';
+import { KanbanEngine } from './components/kanbanEngine.js';
+import { GanttEngine } from './components/ganttEngine.js';
 import { RolePortals } from './components/rolePortals.js';
 import { monitoringAgent } from './agents/monitoringAgent.js';
 import { assistantAgent } from './agents/assistantAgent.js';
 import { searchAgent } from './agents/searchAgent.js';
+import { mountLoginScreen } from './components/loginScreen.js';
 
 class NexusApp {
   constructor() {
     this.graphEngine = null;
+    this.kanbanEngine = null;
+    this.ganttEngine = null;
     this.rolePortals = null;
+    this.activePage = 'overview';
   }
 
   init() {
     this.rolePortals = new RolePortals('portalTabContent');
     this.graphEngine = new LiveTaskGraphEngine('graphSvg', 'graphTooltip', 'nodeDetailDrawer');
+    this.kanbanEngine = new KanbanEngine('kanbanContainer');
+    this.ganttEngine = new GanttEngine('ganttContainer');
 
-    this.rolePortals.render();
-    this.graphEngine.render();
-    this.graphEngine.startPhysicsLoop();
-
+    this.bindSidebarNavigation();
     this.bindThemeToggler();
     this.bindRoleSelector();
     this.bindTabNavigation();
+    this.bindViewSwitcher();
     this.bindSearchEngine();
     this.bindAiPromptLauncher();
     this.bindTaskModal();
@@ -34,19 +42,267 @@ class NexusApp {
     this.bindNotificationsDrawer();
     this.bindAutoRebalancer();
     this.bindDocumentViewerModal();
+    this.bindMeetingModal();
+    this.bindFooterAgentPills();
+    this.bindLogoutButton();
+
+    window.addEventListener('nexus:inspect-node', () => {
+      this.navigateTo('graph');
+    });
+
+    this.navigateTo('overview');
+    this.graphEngine.startPhysicsLoop();
 
     store.subscribe(() => {
-      this.rolePortals.render();
-      this.graphEngine.render();
+      if (['graph', 'kanban', 'timeline'].includes(this.activePage)) {
+        this.renderCurrentView();
+      } else {
+        this.rolePortals.render();
+      }
       this.updateNavbarUser();
       this.updateUnreadCount();
+      this.renderToasts();
       this.syncThemeUI();
     });
 
     this.updateNavbarUser();
     this.updateUnreadCount();
+    this.renderToasts();
     this.syncThemeUI();
-    console.log('🚀 Nexus Mind Platform Initialized successfully!');
+    window.nexusApp = this;
+    console.log('🚀 Nexus Mind Autonomous Platform Online!');
+  }
+
+  async approveProposal(propId) {
+    try {
+      await api.approveAiProposal(propId);
+      store.addToast('Proposal Approved', `Action proposal ${propId} executed and logged to audit trail.`, 'success');
+      await store.init();
+    } catch (err) {
+      store.addToast('Action Failed', `Could not approve proposal ${propId}: ${err.message}`, 'danger');
+    }
+  }
+
+  async rejectProposal(propId) {
+    try {
+      await api.rejectAiProposal(propId);
+      store.addToast('Proposal Dismissed', `Action proposal ${propId} dismissed.`, 'info');
+    } catch (err) {
+      store.addToast('Dismiss Failed', `Could not dismiss proposal: ${err.message}`, 'warning');
+    }
+  }
+
+
+  // --- Unified Navigation & View Routing ---
+  navigateTo(pageId) {
+    this.activePage = pageId;
+
+    // 1. Highlight matching sidebar nav item
+    document.querySelectorAll('.sidebar-nav-item').forEach(item => {
+      if (item.getAttribute('data-page') === pageId) {
+        item.classList.add('active');
+      } else {
+        item.classList.remove('active');
+      }
+    });
+
+    const portalContainer = document.getElementById('portalViewContainer');
+    const matrixContainer = document.getElementById('matrixViewContainer');
+
+    const matrixViews = ['graph', 'kanban', 'timeline'];
+    if (matrixViews.includes(pageId)) {
+      if (portalContainer) portalContainer.classList.add('hidden');
+      if (matrixContainer) matrixContainer.classList.remove('hidden');
+      store.setView(pageId);
+      this.renderCurrentView();
+    } else {
+      if (matrixContainer) matrixContainer.classList.add('hidden');
+      if (portalContainer) portalContainer.classList.remove('hidden');
+      this.rolePortals.setTab(pageId);
+    }
+
+    this.updateTopbarTitles(pageId);
+  }
+
+  updateTopbarTitles(pageId) {
+    const state = store.getState();
+    const pageTitle = document.getElementById('appPageTitle');
+    const pageSubtitle = document.getElementById('appPageSubtitle');
+    if (!pageTitle) return;
+
+    const activeProjectsCount = state.projects ? state.projects.length : 0;
+    const activeMembersCount = state.users ? state.users.length : 0;
+    const blockedTasksCount = state.tasks ? state.tasks.filter(t => t.status === 'blocked').length : 0;
+    const sprintStats = `Organization Workspace • ${activeProjectsCount} Active Project${activeProjectsCount === 1 ? '' : 's'} • ${activeMembersCount} Team Member${activeMembersCount === 1 ? '' : 's'} • ${blockedTasksCount} Blocked`;
+
+    const titleMap = {
+      employee: '👨‍💻 Employee Workspace Dashboard',
+      team_lead: '👩‍💼 Team Lead Management Dashboard',
+      project_manager: '📊 Project Manager Sprint Dashboard',
+      admin: '🛡️ Administrator Console Dashboard'
+    };
+
+    const pages = {
+      overview: {
+        title: titleMap[state.currentRole] || 'Workspace Dashboard',
+        sub: sprintStats
+      },
+      tasks: {
+        title: '📋 Enterprise Tasks Matrix',
+        sub: 'Unified Sprint Backlog • Dependency Status & Work Breakdown Structure'
+      },
+      graph: {
+        title: '⚡ Live Task Graph',
+        sub: 'Interactive Dependency DAG • Real-time Physics & Critical Path Overlay'
+      },
+      kanban: {
+        title: '🗂️ Agile Kanban Board',
+        sub: 'Interactive Drag & Drop Board • Backlog to Completed'
+      },
+      timeline: {
+        title: '📅 Gantt Timeline Schedule',
+        sub: 'Critical Path Schedule, Milestone Durations & Deadlines'
+      },
+      agents: {
+        title: '🤖 Autonomous Multi-Agent War Room',
+        sub: 'Swarm Telemetry • Continuous Threat Monitoring & Auto-Mitigation'
+      },
+      simulation: {
+        title: '⚡ Monte Carlo Risk Simulator',
+        sub: 'Stochastic Schedule Simulation & What-If Bottleneck Stress Testing'
+      },
+      analytics: {
+        title: '📈 Sprint Analytics & Workload Velocity',
+        sub: 'Burn-up/Burn-down Metrics • Team Load Balance & Delivery Forecast'
+      },
+      meetings: {
+        title: '🎙️ Smart Standup & Meeting Room',
+        sub: 'Live Video Conferencing • AI Audio Transcripts & Auto-Action Items'
+      },
+      knowledge: {
+        title: '📚 Workspace Knowledge Base',
+        sub: 'Architectural Specs, Engineering SOPs, Security Policies & Handbooks'
+      },
+      activity: {
+        title: '🛡️ Organization Audit Trail',
+        sub: 'Tamper-Proof Event Ledger • Autonomous Swarm Actions & User Logs'
+      }
+    };
+
+    const info = pages[pageId] || pages.overview;
+    pageTitle.textContent = info.title;
+    if (pageSubtitle) pageSubtitle.textContent = info.sub;
+  }
+
+  bindSidebarNavigation() {
+    const navItems = document.querySelectorAll('.sidebar-nav-item');
+    navItems.forEach(item => {
+      item.addEventListener('click', (e) => {
+        const page = e.currentTarget.getAttribute('data-page');
+        if (page) {
+          this.navigateTo(page);
+        }
+      });
+    });
+  }
+
+  // --- Multi-View Matrix Rendering ---
+  bindViewSwitcher() {
+    const viewBtns = document.querySelectorAll('.view-tab-btn');
+    viewBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const view = e.currentTarget.getAttribute('data-view');
+        this.navigateTo(view);
+      });
+    });
+  }
+
+  renderCurrentView() {
+    const state = store.getState();
+    const view = state.currentView || 'graph';
+
+    const graphContainer = document.getElementById('graphCanvasContainer');
+    const kanbanContainer = document.getElementById('kanbanContainer');
+    const ganttContainer = document.getElementById('ganttContainer');
+    const graphToolbar = document.getElementById('graphSpecificToolbar');
+    const viewSubtitle = document.getElementById('viewSubtitle');
+
+    // Update switcher active tab
+    document.querySelectorAll('.view-tab-btn').forEach(btn => {
+      if (btn.getAttribute('data-view') === view) btn.classList.add('active');
+      else btn.classList.remove('active');
+    });
+
+    if (view === 'graph') {
+      if (graphContainer) graphContainer.classList.remove('hidden');
+      if (kanbanContainer) kanbanContainer.classList.add('hidden');
+      if (ganttContainer) ganttContainer.classList.add('hidden');
+      if (graphToolbar) graphToolbar.classList.remove('hidden');
+      if (viewSubtitle) viewSubtitle.textContent = 'Single Source of Truth • Drag node port to link dependencies';
+      this.graphEngine.render();
+    } else if (view === 'kanban') {
+      if (graphContainer) graphContainer.classList.add('hidden');
+      if (kanbanContainer) kanbanContainer.classList.remove('hidden');
+      if (ganttContainer) ganttContainer.classList.add('hidden');
+      if (graphToolbar) graphToolbar.classList.add('hidden');
+      if (viewSubtitle) viewSubtitle.textContent = 'Interactive Drag & Drop Board • Backlog to Completed';
+      // Clean up CPM side panel if it was mounted on the graph container
+      document.getElementById('cpmSidePanel')?.remove();
+      this.kanbanEngine.render();
+    } else if (view === 'timeline') {
+      if (graphContainer) graphContainer.classList.add('hidden');
+      if (kanbanContainer) kanbanContainer.classList.add('hidden');
+      if (ganttContainer) ganttContainer.classList.remove('hidden');
+      if (graphToolbar) graphToolbar.classList.add('hidden');
+      if (viewSubtitle) viewSubtitle.textContent = 'Critical Path Schedule & Milestone Durations';
+      document.getElementById('cpmSidePanel')?.remove();
+      this.ganttEngine.render();
+    }
+  }
+
+  // --- Toasts Rendering ---
+  renderToasts() {
+    const container = document.getElementById('nexusToastContainer');
+    if (!container) return;
+
+    const state = store.getState();
+    container.innerHTML = state.toasts.map(t => `
+      <div class="toast-item ${t.type}">
+        <div style="font-weight:700; font-size:0.8rem; display:flex; justify-content:space-between; align-items:center;">
+          <span>${t.type === 'success' ? '✅' : (t.type === 'warning' ? '⚠️' : '💡')} ${t.title}</span>
+          <button class="btn-toast-close" data-id="${t.id}">&times;</button>
+        </div>
+        <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:3px;">${t.message}</div>
+      </div>
+    `).join('');
+
+    container.querySelectorAll('.btn-toast-close').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.currentTarget.getAttribute('data-id');
+        store.removeToast(id);
+      });
+    });
+  }
+
+  // --- Footer Agent Pills Shortcuts ---
+  bindFooterAgentPills() {
+    document.getElementById('agentMonitoringPill')?.addEventListener('click', () => {
+      document.getElementById('btnRunAiScan')?.click();
+    });
+
+    document.getElementById('agentAssistantPill')?.addEventListener('click', () => {
+      const chatModal = document.getElementById('aiChatModal');
+      if (chatModal) chatModal.classList.remove('hidden');
+      document.getElementById('chatInput')?.focus();
+    });
+
+    document.getElementById('agentSearchPill')?.addEventListener('click', () => {
+      const searchInput = document.getElementById('globalSearchInput');
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
+    });
   }
 
   // --- Theme Toggle Switch ---
@@ -57,6 +313,8 @@ class NexusApp {
     btn.addEventListener('click', () => {
       const newTheme = store.toggleTheme();
       this.syncThemeUI();
+      if (this.graphEngine) this.graphEngine.render();
+      if (this.rolePortals) this.rolePortals.render();
     });
   }
 
@@ -76,6 +334,8 @@ class NexusApp {
   updateNavbarUser() {
     const state = store.getState();
     const user = state.currentUser;
+    if (!user) return;
+
     const navName = document.getElementById('navUserName');
     const navRole = document.getElementById('navUserRole');
     const navAvatar = document.getElementById('navUserAvatar');
@@ -92,6 +352,15 @@ class NexusApp {
       admin: '🛡️ Administrator Organization Portal'
     };
     if (portalTitle) portalTitle.textContent = titleMap[state.currentRole] || 'Workspace Portal';
+
+    const portalSub = document.getElementById('portalSub');
+    if (portalSub) {
+      const activeProjectsCount = state.projects ? state.projects.length : 0;
+      const activeMembersCount = state.users ? state.users.length : 0;
+      const blockedTasksCount = state.tasks ? state.tasks.filter(t => t.status === 'blocked').length : 0;
+      portalSub.textContent = `Organization Workspace • ${activeProjectsCount} Active Project${activeProjectsCount === 1 ? '' : 's'} • ${activeMembersCount} Team Member${activeMembersCount === 1 ? '' : 's'} • ${blockedTasksCount} Blocked`;
+    }
+    this.updateTopbarTitles(this.activePage || 'overview');
   }
 
   updateUnreadCount() {
@@ -172,10 +441,15 @@ class NexusApp {
 
         if (type === 'Task') {
           const task = store.getState().tasks.find(t => t.id === id);
-          if (task) this.graphEngine.showNodeDrawer(task);
+          if (task) {
+            this.navigateTo('graph');
+            this.graphEngine.showNodeDrawer(task);
+          }
         } else if (type === 'Policy') {
           const policy = store.getState().policies.find(p => p.title === id);
           if (policy) this.openDocModal(policy);
+        } else if (type === 'Meeting') {
+          this.navigateTo('meetings');
         }
       }
     });
@@ -196,21 +470,32 @@ class NexusApp {
     const chatInput = document.getElementById('chatInput');
     const btnSendChat = document.getElementById('btnSendChat');
 
+    const formatMarkdown = (text) => {
+      if (!text) return '';
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:4px; font-family:monospace;">$1</code>')
+        .replace(/\n/g, '<br/>');
+    };
+
     const handlePromptSubmit = async (userText) => {
       if (!userText.trim()) return;
-
       if (!chatMessages) return;
 
       const userDiv = document.createElement('div');
       userDiv.className = 'chat-message user';
-      userDiv.innerHTML = `<div class="msg-bubble">${userText}</div>`;
+      userDiv.innerHTML = `<div class="msg-bubble">${formatMarkdown(userText)}</div>`;
       chatMessages.appendChild(userDiv);
 
       const assistantDiv = document.createElement('div');
       assistantDiv.className = 'chat-message assistant';
       assistantDiv.innerHTML = `
-        <div class="msg-avatar">💡</div>
-        <div class="msg-bubble"><em>🤖 Nexus AI analyzing...</em></div>
+        <div class="msg-avatar">🤖</div>
+        <div class="msg-bubble"><em>Evaluating workspace telemetry & database...</em></div>
       `;
       chatMessages.appendChild(assistantDiv);
       chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -220,19 +505,63 @@ class NexusApp {
       try {
         const response = await assistantAgent.processPromptAsync(userText);
         const bubble = assistantDiv.querySelector('.msg-bubble');
-        if (bubble && response && response.message) {
-          bubble.innerHTML = response.message.replace(/\n/g, '<br/>');
+        if (bubble && response) {
+          let html = `<div style="font-size:0.75rem; font-weight:bold; color:var(--cyan-primary); margin-bottom:4px;">⚡ ${response.agent || 'Nexus Agent Swarm'}</div>`;
+          html += `<div>${formatMarkdown(response.message)}</div>`;
+
+          // If Proposal Present
+          if (response.proposal) {
+            const p = response.proposal;
+            html += `
+              <div class="ai-proposal-card" style="margin-top:10px; padding:10px; border:1px solid var(--cyan-primary); border-radius:8px; background:rgba(0,242,254,0.05);">
+                <div style="font-weight:bold; font-size:0.8rem; color:#F59E0B;">🛡️ Human-in-the-Loop Proposal (${p.id})</div>
+                <div style="font-size:0.75rem; margin-top:4px; color:#CBD5E1;">${p.reason}</div>
+                <div style="margin-top:8px; display:flex; gap:8px;">
+                  <button class="btn btn-sm btn-primary" onclick="window.nexusApp?.approveProposal('${p.id}')">✓ Approve Action</button>
+                  <button class="btn btn-sm btn-secondary" onclick="window.nexusApp?.rejectProposal('${p.id}')">✕ Dismiss</button>
+                </div>
+              </div>
+            `;
+          }
+
+          // If Decision Trace Present
+          if (response.trace && response.trace.intent) {
+            html += `
+              <details style="margin-top:8px; font-size:0.72rem; color:#94A3B8; border-top:1px solid rgba(255,255,255,0.08); padding-top:4px;">
+                <summary style="cursor:pointer; color:var(--cyan-primary);">🔍 Agent Execution Trace (${response.trace.intent})</summary>
+                <div style="margin-top:4px; padding:4px 8px; background:rgba(0,0,0,0.3); border-radius:4px;">
+                  <div>• <strong>Intent</strong>: ${response.trace.intent}</div>
+                  <div>• <strong>Tools Executed</strong>: ${response.trace.tools_executed?.join(', ') || 'None'}</div>
+                  ${response.trace.evidence ? `<div>• <strong>Evidence</strong>: ${response.trace.evidence}</div>` : ''}
+                </div>
+              </details>
+            `;
+          }
+
+          bubble.innerHTML = html;
+
+          if (response.agent && response.trace) {
+            store.logSwarmActivity(
+              response.agent,
+              response.trace.intent || 'Query Execution',
+              response.trace.evidence || (response.message ? response.message.substring(0, 90) : 'Executed database query'),
+              'Active',
+              response.trace.tools_executed?.join(', ') || null,
+              response.trace
+            );
+          }
         }
       } catch (err) {
         const bubble = assistantDiv.querySelector('.msg-bubble');
         if (bubble) {
           const fallback = assistantAgent.processSmartRuleEngine(userText);
-          bubble.innerHTML = fallback.message.replace(/\n/g, '<br/>');
+          bubble.innerHTML = formatMarkdown(fallback.message);
         }
       }
 
       chatMessages.scrollTop = chatMessages.scrollHeight;
     };
+
 
     if (promptForm && promptInput) {
       promptForm.addEventListener('submit', (e) => {
@@ -240,6 +569,17 @@ class NexusApp {
         const text = promptInput.value;
         promptInput.value = '';
         handlePromptSubmit(text);
+      });
+
+      // Quick Prompt Chips
+      document.querySelectorAll('.copilot-chip').forEach(chip => {
+        chip.addEventListener('click', (e) => {
+          e.preventDefault();
+          const prompt = chip.getAttribute('data-prompt');
+          if (prompt) {
+            handlePromptSubmit(prompt);
+          }
+        });
       });
     }
 
@@ -278,19 +618,36 @@ class NexusApp {
 
     if (!modal) return;
 
-    const populateDependencies = () => {
-      if (!depSelect) return;
-      const tasks = store.getState().tasks;
-      depSelect.innerHTML = '<option value="">None (Standalone)</option>' +
-        tasks.map(t => `<option value="${t.id}">[${t.id}] ${t.title}</option>`).join('');
+    const populateDynamicFields = () => {
+      const state = store.getState();
+      if (depSelect) {
+        depSelect.innerHTML = '<option value="">None (Standalone)</option>' +
+          state.tasks.map(t => `<option value="${t.id}">[${t.id}] ${t.title}</option>`).join('');
+      }
+      const assigneeSelect = document.getElementById('taskAssigneeSelect');
+      if (assigneeSelect && state.users.length > 0) {
+        assigneeSelect.innerHTML = state.users.map(u => `<option value="${u.name}">${u.name} (${u.role})</option>`).join('');
+      }
+      const projSelect = document.getElementById('taskProjectSelect');
+      if (projSelect && state.projects.length > 0) {
+        projSelect.innerHTML = state.projects.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+      }
     };
+
+    const deadlineInput = document.getElementById('taskDeadlineInput');
 
     if (openBtn) {
       openBtn.addEventListener('click', () => {
-        populateDependencies();
+        populateDynamicFields();
+        if (deadlineInput) {
+          const today = new Date().toISOString().split('T')[0];
+          deadlineInput.min = today;
+          if (!deadlineInput.value) deadlineInput.value = today;
+        }
         modal.classList.remove('hidden');
       });
     }
+
 
     const closeModal = () => modal.classList.add('hidden');
     if (closeBtn) closeBtn.addEventListener('click', closeModal);
@@ -312,8 +669,10 @@ class NexusApp {
         const priority = document.getElementById('taskPrioritySelect').value;
         const project = document.getElementById('taskProjectSelect').value;
         const dependsOn = document.getElementById('taskDependencySelect').value;
+        const dueDate = document.getElementById('taskDeadlineInput').value;
+        const description = document.getElementById('taskDescInput')?.value || '';
 
-        store.addTask({ title, assignee, priority, project, dependsOn });
+        store.addTask({ title, assignee, priority, project, dependsOn, dueDate, description });
         closeModal();
         taskForm.reset();
       });
@@ -340,6 +699,19 @@ class NexusApp {
       physicsBtn.addEventListener('click', () => {
         const state = this.graphEngine.togglePhysics();
         physicsBtn.querySelector('span').textContent = `Physics: ${state ? 'ON' : 'OFF'}`;
+      });
+    }
+
+    const cpmBtn = document.getElementById('btnToggleCpm');
+    if (cpmBtn) {
+      cpmBtn.addEventListener('click', async () => {
+        cpmBtn.disabled = true;
+        cpmBtn.textContent = '⏳ Computing...';
+        const isActive = await this.graphEngine.toggleCpmMode();
+        cpmBtn.disabled = false;
+        cpmBtn.textContent = isActive ? '🏗️ CPM: ON' : '🏗️ CPM';
+        cpmBtn.style.background = isActive ? 'rgba(255,215,0,0.12)' : '';
+        cpmBtn.style.color = '#FFD700';
       });
     }
 
@@ -382,6 +754,7 @@ class NexusApp {
     }
 
     document.getElementById('btnViewRiskDetails')?.addEventListener('click', () => {
+      this.navigateTo('graph');
       this.graphEngine.setFilter('risk');
     });
   }
@@ -443,6 +816,91 @@ class NexusApp {
     }
   }
 
+  bindMeetingModal() {
+    const modal = document.getElementById('meetingModal');
+    const closeBtn = document.getElementById('btnCloseMeetingModal');
+    const cancelBtn = document.getElementById('btnCancelMeetingModal');
+    const form = document.getElementById('meetingForm');
+    const attendeesList = document.getElementById('meetingAttendeesList');
+    const dateInput = document.getElementById('meetingDateInput');
+
+    if (!modal) return;
+
+    const populateAttendees = () => {
+      const state = store.getState();
+      if (attendeesList) {
+        attendeesList.innerHTML = state.users
+          .map(u => `
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.8rem; color: var(--text-primary); padding: 4px 0; cursor: pointer;">
+              <input type="checkbox" class="meeting-attendee-checkbox" value="${u.name}" ${u.name === state.currentUser?.name ? 'checked' : ''} />
+              ${u.name} <span style="color: var(--text-muted);">(${u.role})</span>
+            </label>
+          `).join('');
+      }
+      const projSelect = document.getElementById('meetingProjectSelect');
+      if (projSelect && state.projects.length > 0) {
+        projSelect.innerHTML = state.projects.map(p => `<option value="${p.name}">${p.name}</option>`).join('') +
+          '<option value="General">General / Cross-team</option>';
+      }
+    };
+
+
+    const openModal = () => {
+      populateAttendees();
+      if (dateInput) {
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.min = today;
+        if (!dateInput.value) dateInput.value = today;
+      }
+      modal.classList.remove('hidden');
+    };
+
+    const closeModal = () => modal.classList.add('hidden');
+
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('.btn-open-meeting-modal')) {
+        openModal();
+      }
+    });
+
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+
+    if (form) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const title = document.getElementById('meetingTitleInput').value;
+        const project = document.getElementById('meetingProjectSelect').value;
+        const duration = document.getElementById('meetingDurationSelect').value;
+        const date = document.getElementById('meetingDateInput').value;
+        const time = document.getElementById('meetingTimeInput').value;
+        const agenda = document.getElementById('meetingAgendaInput').value;
+        const attendees = Array.from(attendeesList.querySelectorAll('.meeting-attendee-checkbox'))
+          .filter(cb => cb.checked)
+          .map(cb => cb.value);
+
+        store.addMeeting({ title, project, duration, date, time, agenda, attendees });
+        closeModal();
+        form.reset();
+      });
+    }
+  }
+
+  bindLogoutButton() {
+    const btn = document.getElementById('btnLogoutNav');
+    if (!btn) return;
+
+    btn.addEventListener('click', () => {
+      store.logout();
+      document.getElementById('app')?.classList.add('hidden');
+      mountLoginScreen(async () => {
+        await store.init();
+        document.getElementById('app')?.classList.remove('hidden');
+      });
+    });
+  }
+
   openDocModal(policy) {
     const modal = document.getElementById('docViewerModal');
     const title = document.getElementById('docModalTitle');
@@ -455,7 +913,7 @@ class NexusApp {
           <span class="search-item-tag">${policy.category}</span>
           ${policy.tags.map(t => `<span style="font-size:0.7rem; background:rgba(0,0,0,0.06); padding:2px 8px; border-radius:10px; color:var(--text-secondary);">#${t}</span>`).join('')}
         </div>
-        <div style="background:rgba(0,0,0,0.04); border:1px solid var(--border-color); padding:14px; border-radius:10px; font-size:0.875rem;">
+        <div style="background:rgba(0,0,0,0.2); border:1px solid var(--border-color); padding:14px; border-radius:10px; font-size:0.875rem; color:#F1F5F9; line-height:1.6;">
           ${policy.summary}
         </div>
       `;
@@ -464,7 +922,31 @@ class NexusApp {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+async function boot() {
+  if (!api.isAuthenticated) {
+    mountLoginScreen(async () => {
+      await store.init();
+      startApp();
+    });
+    return;
+  }
+  try {
+    await store.init();
+    startApp();
+  } catch (err) {
+    console.error('Session init fallback', err);
+    mountLoginScreen(async () => {
+      await store.init();
+      startApp();
+    });
+  }
+}
+
+function startApp() {
+  document.getElementById('nexusLoginOverlay')?.remove();
+  document.getElementById('app')?.classList.remove('hidden');
   const app = new NexusApp();
   app.init();
-});
+}
+
+document.addEventListener('DOMContentLoaded', boot);
