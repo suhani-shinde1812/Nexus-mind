@@ -5,7 +5,8 @@
  */
 
 const isBrowser = typeof window !== 'undefined';
-const API_BASE = import.meta.env.VITE_API_BASE_URL || (isBrowser ? window.location.origin : 'http://localhost:8000');
+const isLocal = isBrowser && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const API_BASE = import.meta.env.VITE_API_BASE_URL || (isLocal ? 'http://localhost:8000' : (isBrowser ? window.location.origin : 'http://localhost:8000'));
 const WS_BASE = import.meta.env.VITE_WS_BASE_URL || (isBrowser ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}` : API_BASE.replace(/^http/, 'ws'));
 const TOKEN_KEY = 'NEXUS_MIND_AUTH_TOKENS_V1';
 
